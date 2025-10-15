@@ -1,0 +1,6 @@
+node_modules
+.env
+.env.example
+projectPlan.txt
+POSTMAN_GUIDE.md
+SMS_Gateway_API.postman_collection.json
