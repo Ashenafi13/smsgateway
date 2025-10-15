@@ -9,6 +9,7 @@ const contractDisplayRoutes = require('./contractDisplay');
 const settingsRoutes = require('./settings');
 const schedulerRoutes = require('./scheduler');
 const languageRoutes = require('./language');
+const templateRoutes = require('./template');
 
 const router = express.Router();
 
@@ -26,7 +27,8 @@ router.get('/', (req, res) => {
       contractDisplay: '/api/contract-display',
       settings: '/api/settings',
       scheduler: '/api/scheduler',
-      language: '/api/language'
+      language: '/api/language',
+      templates: '/api/templates'
     },
     documentation: {
       auth: {
@@ -90,6 +92,17 @@ router.get('/', (req, res) => {
         'POST /api/language/default/set': 'Set default language',
         'POST /api/language/initialize': 'Initialize default language settings'
       },
+      templates: {
+        'GET /api/templates': 'Get all SMS templates',
+        'GET /api/templates/display': 'Get templates formatted for frontend display',
+        'GET /api/templates/categories': 'Get all template categories',
+        'GET /api/templates/statistics': 'Get template usage statistics',
+        'GET /api/templates/:id': 'Get template by ID',
+        'GET /api/templates/category/:category': 'Get templates by category',
+        'POST /api/templates/:id/preview': 'Generate template preview with variables',
+        'POST /api/templates/:id/use': 'Increment template usage count',
+        'GET /api/templates/info': 'Get static template information'
+      },
       paymentDisplay: {
         'GET /api/payment-display': 'Get all payment displays',
         'GET /api/payment-display/approaching-deadlines': 'Get payment displays approaching deadline',
@@ -135,5 +148,6 @@ router.use('/contract-display', contractDisplayRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/scheduler', schedulerRoutes);
 router.use('/language', languageRoutes);
+router.use('/templates', templateRoutes);
 
 module.exports = router;
