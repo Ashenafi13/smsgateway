@@ -1,10 +1,14 @@
 const PaymentDeadlineScheduler = require('./paymentDeadlineScheduler');
 const ContractDeadlineScheduler = require('./contractDeadlineScheduler');
+const PaymentDisplayDeadlineScheduler = require('./paymentDisplayDeadlineScheduler');
+const ContractDisplayDeadlineScheduler = require('./contractDisplayDeadlineScheduler');
 const SmsExecutionScheduler = require('./smsExecutionScheduler');
 
 // Scheduler instances
 let paymentScheduler = null;
 let contractScheduler = null;
+let paymentDisplayScheduler = null;
+let contractDisplayScheduler = null;
 let smsExecutionScheduler = null;
 
 // Initialize all schedulers
@@ -19,6 +23,14 @@ function initializeSchedulers() {
     // Initialize Contract Deadline Scheduler
     contractScheduler = new ContractDeadlineScheduler();
     contractScheduler.start();
+
+    // Initialize Payment Display Deadline Scheduler
+    paymentDisplayScheduler = new PaymentDisplayDeadlineScheduler();
+    paymentDisplayScheduler.start();
+
+    // Initialize Contract Display Deadline Scheduler
+    contractDisplayScheduler = new ContractDisplayDeadlineScheduler();
+    contractDisplayScheduler.start();
 
     // Initialize SMS Execution Scheduler
     smsExecutionScheduler = new SmsExecutionScheduler();
@@ -46,6 +58,16 @@ function stopSchedulers() {
       contractScheduler = null;
     }
 
+    if (paymentDisplayScheduler) {
+      paymentDisplayScheduler.stop();
+      paymentDisplayScheduler = null;
+    }
+
+    if (contractDisplayScheduler) {
+      contractDisplayScheduler.stop();
+      contractDisplayScheduler = null;
+    }
+
     if (smsExecutionScheduler) {
       smsExecutionScheduler.stop();
       smsExecutionScheduler = null;
@@ -63,6 +85,8 @@ function getSchedulers() {
   return {
     paymentScheduler,
     contractScheduler,
+    paymentDisplayScheduler,
+    contractDisplayScheduler,
     smsExecutionScheduler
   };
 }
@@ -72,6 +96,8 @@ function getSchedulerStatus() {
   return {
     payment: paymentScheduler ? paymentScheduler.getStatus() : { isRunning: false, isScheduled: false },
     contract: contractScheduler ? contractScheduler.getStatus() : { isRunning: false, isScheduled: false },
+    paymentDisplay: paymentDisplayScheduler ? paymentDisplayScheduler.getStatus() : { isRunning: false, isScheduled: false },
+    contractDisplay: contractDisplayScheduler ? contractDisplayScheduler.getStatus() : { isRunning: false, isScheduled: false },
     smsExecution: smsExecutionScheduler ? smsExecutionScheduler.getStatus() : { isRunning: false, isScheduled: false }
   };
 }
@@ -89,6 +115,20 @@ async function triggerContractDeadlineCheck() {
     throw new Error('Contract scheduler not initialized');
   }
   return await contractScheduler.triggerManualCheck();
+}
+
+async function triggerPaymentDisplayDeadlineCheck() {
+  if (!paymentDisplayScheduler) {
+    throw new Error('Payment display scheduler not initialized');
+  }
+  return await paymentDisplayScheduler.triggerManualCheck();
+}
+
+async function triggerContractDisplayDeadlineCheck() {
+  if (!contractDisplayScheduler) {
+    throw new Error('Contract display scheduler not initialized');
+  }
+  return await contractDisplayScheduler.triggerManualCheck();
 }
 
 async function triggerSmsExecution() {
@@ -121,6 +161,8 @@ module.exports = {
   getSchedulerStatus,
   triggerPaymentDeadlineCheck,
   triggerContractDeadlineCheck,
+  triggerPaymentDisplayDeadlineCheck,
+  triggerContractDisplayDeadlineCheck,
   triggerSmsExecution,
   executeSmsJobsByCriteria,
   getExecutionStatistics

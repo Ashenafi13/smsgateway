@@ -1,6 +1,6 @@
 const { getBMSPool, sql } = require('../config/database');
 
-class Payment {
+class PaymentDisplay {
   constructor(data) {
     this.id = data.id;
     this.paid_by = data.paid_by;
@@ -30,7 +30,7 @@ class Payment {
     this.ETEndDate = data.ETEndDate;
   }
 
-  // Get all payments
+  // Get all payment displays
   static async findAll(limit = 100, offset = 0) {
     try {
       const pool = getBMSPool();
@@ -40,19 +40,19 @@ class Payment {
         .input('limit', sql.Int, limit)
         .input('offset', sql.Int, offset)
         .query(`
-          SELECT * FROM payment 
+          SELECT * FROM paymentDisplay 
           ORDER BY paid_date DESC
           OFFSET @offset ROWS
           FETCH NEXT @limit ROWS ONLY
         `);
       
-      return result.recordset.map(payment => new Payment(payment));
+      return result.recordset.map(payment => new PaymentDisplay(payment));
     } catch (error) {
-      throw new Error(`Error fetching payments: ${error.message}`);
+      throw new Error(`Error fetching payment displays: ${error.message}`);
     }
   }
 
-  // Get payments with customer details
+  // Get payment displays with customer details
   static async findAllWithCustomers(limit = 100, offset = 0) {
     try {
       const pool = getBMSPool();
@@ -70,6 +70,11 @@ class Payment {
               ELSE 'Unknown'
             END as customer_name,
             CASE 
+              WHEN p.customer_type = 'com' THEN cp.CompanyNameAM
+              WHEN p.customer_type = 'ind' THEN ir.fullnameAM
+              ELSE 'Unknown'
+            END as customer_name_am,
+            CASE 
               WHEN p.customer_type = 'com' THEN cp.PhoneNumber
               WHEN p.customer_type = 'ind' THEN ir.phone
               ELSE NULL
@@ -79,7 +84,7 @@ class Payment {
               WHEN p.customer_type = 'ind' THEN ir.email
               ELSE NULL
             END as customer_email
-          FROM payment p
+          FROM paymentDisplay p
           LEFT JOIN company_profile cp ON p.customer_type = 'com' AND p.paid_by = cp.com_id
           LEFT JOIN individual_renters ir ON p.customer_type = 'ind' AND p.paid_by = ir.ind_id
           ORDER BY p.paid_date DESC
@@ -89,11 +94,11 @@ class Payment {
       
       return result.recordset;
     } catch (error) {
-      throw new Error(`Error fetching payments with customers: ${error.message}`);
+      throw new Error(`Error fetching payment displays with customers: ${error.message}`);
     }
   }
 
-  // Get payments approaching deadline (including overdue)
+  // Get payment displays approaching deadline (including overdue)
   static async findApproachingDeadline(daysToDeadline) {
     try {
       const pool = getBMSPool();
@@ -121,7 +126,7 @@ class Payment {
             END as customer_phone,
             p.customer_type,
             DATEDIFF(day, GETDATE(), p.end_date) as days_to_deadline
-          FROM payment p
+          FROM paymentDisplay p
           LEFT JOIN company_profile cp ON p.customer_type = 'com' AND p.paid_by = cp.com_id
           LEFT JOIN individual_renters ir ON p.customer_type = 'ind' AND p.paid_by = ir.ind_id
           WHERE p.end_date IS NOT NULL
@@ -138,21 +143,21 @@ class Payment {
 
       return result.recordset;
     } catch (error) {
-      throw new Error(`Error fetching payments approaching deadline: ${error.message}`);
+      throw new Error(`Error fetching payment displays approaching deadline: ${error.message}`);
     }
   }
 
-  // Get payments approaching deadline grouped by customer (paid_by)
+  // Get payment displays approaching deadline grouped by customer (paid_by)
   static async findApproachingDeadlineGroupedByCustomer(daysToDeadline) {
     try {
       const payments = await this.findApproachingDeadline(daysToDeadline);
-
+      
       // Group payments by customer (paid_by + customer_type)
       const groupedPayments = {};
-
+      
       payments.forEach(payment => {
         const customerKey = `${payment.customer_type}_${payment.paid_by}`;
-
+        
         if (!groupedPayments[customerKey]) {
           groupedPayments[customerKey] = {
             customer_id: payment.paid_by,
@@ -163,31 +168,31 @@ class Payment {
             payments: []
           };
         }
-
+        
         groupedPayments[customerKey].payments.push(payment);
       });
-
+      
       // Convert to array and sort by earliest deadline
       return Object.values(groupedPayments).map(group => {
         // Sort payments within each group by deadline
         group.payments.sort((a, b) => new Date(a.end_date) - new Date(b.end_date));
-
+        
         // Add summary information
         group.totalAmount = group.payments.reduce((sum, p) => sum + (p.GroundTotal || p.line_total || 0), 0);
         group.paymentCount = group.payments.length;
         group.earliestDeadline = group.payments[0].end_date;
         group.earliestDaysToDeadline = group.payments[0].days_to_deadline;
-
+        
         return group;
       }).sort((a, b) => new Date(a.earliestDeadline) - new Date(b.earliestDeadline));
-
+      
     } catch (error) {
-      console.error('Error fetching grouped approaching deadline payments:', error);
-      throw new Error(`Error fetching grouped approaching deadline payments: ${error.message}`);
+      console.error('Error fetching grouped approaching deadline payment displays:', error);
+      throw new Error(`Error fetching grouped approaching deadline payment displays: ${error.message}`);
     }
   }
 
-  // Get payment by ID
+  // Get payment display by ID
   static async findById(id) {
     try {
       const pool = getBMSPool();
@@ -195,19 +200,19 @@ class Payment {
       
       const result = await request
         .input('id', sql.Int, id)
-        .query('SELECT * FROM payment WHERE id = @id');
+        .query('SELECT * FROM paymentDisplay WHERE id = @id');
       
       if (result.recordset.length === 0) {
         return null;
       }
       
-      return new Payment(result.recordset[0]);
+      return new PaymentDisplay(result.recordset[0]);
     } catch (error) {
-      throw new Error(`Error finding payment by ID: ${error.message}`);
+      throw new Error(`Error fetching payment display by ID: ${error.message}`);
     }
   }
 
-  // Get payments by customer
+  // Get payment displays by customer
   static async findByCustomer(customerId, customerType) {
     try {
       const pool = getBMSPool();
@@ -217,16 +222,16 @@ class Payment {
         .input('customerId', sql.Int, customerId)
         .input('customerType', sql.NVarChar(10), customerType)
         .query(`
-          SELECT * FROM payment 
+          SELECT * FROM paymentDisplay 
           WHERE paid_by = @customerId AND customer_type = @customerType
           ORDER BY paid_date DESC
         `);
       
-      return result.recordset.map(payment => new Payment(payment));
+      return result.recordset.map(payment => new PaymentDisplay(payment));
     } catch (error) {
-      throw new Error(`Error fetching payments by customer: ${error.message}`);
+      throw new Error(`Error fetching payment displays by customer: ${error.message}`);
     }
   }
 }
 
-module.exports = Payment;
+module.exports = PaymentDisplay;

@@ -1,6 +1,6 @@
 const { getBMSPool, sql } = require('../config/database');
 
-class Contract {
+class ContractDisplay {
   constructor(data) {
     this.ContractID = data.ContractID;
     this.RoomID = data.RoomID;
@@ -19,7 +19,6 @@ class Contract {
     this.calender = data.calender;
     this.CovertedGCStartDate = data.CovertedGCStartDate;
     this.CovertedGCEndDate = data.CovertedGCEndDate;
-    this.Reason = data.Reason;
     this.isFirstTime = data.isFirstTime;
     this.leftMonths = data.leftMonths;
     this.leftDays = data.leftDays;
@@ -30,7 +29,7 @@ class Contract {
     this.isUpdatedContract = data.isUpdatedContract;
   }
 
-  // Get all contracts
+  // Get all contract displays
   static async findAll(limit = 100, offset = 0) {
     try {
       const pool = getBMSPool();
@@ -40,19 +39,19 @@ class Contract {
         .input('limit', sql.Int, limit)
         .input('offset', sql.Int, offset)
         .query(`
-          SELECT * FROM Contract 
+          SELECT * FROM ContractDisplay 
           ORDER BY ContractDate DESC
           OFFSET @offset ROWS
           FETCH NEXT @limit ROWS ONLY
         `);
       
-      return result.recordset.map(contract => new Contract(contract));
+      return result.recordset.map(contract => new ContractDisplay(contract));
     } catch (error) {
-      throw new Error(`Error fetching contracts: ${error.message}`);
+      throw new Error(`Error fetching contract displays: ${error.message}`);
     }
   }
 
-  // Get contracts with customer details
+  // Get contract displays with customer details
   static async findAllWithCustomers(limit = 100, offset = 0) {
     try {
       const pool = getBMSPool();
@@ -70,6 +69,11 @@ class Contract {
               ELSE 'Unknown'
             END as customer_name,
             CASE 
+              WHEN c.CustomerType = 'com' THEN cp.CompanyNameAM
+              WHEN c.CustomerType = 'ind' THEN ir.fullnameAM
+              ELSE 'Unknown'
+            END as customer_name_am,
+            CASE 
               WHEN c.CustomerType = 'com' THEN cp.PhoneNumber
               WHEN c.CustomerType = 'ind' THEN ir.phone
               ELSE NULL
@@ -79,7 +83,7 @@ class Contract {
               WHEN c.CustomerType = 'ind' THEN ir.email
               ELSE NULL
             END as customer_email
-          FROM Contract c
+          FROM ContractDisplay c
           LEFT JOIN company_profile cp ON c.CustomerType = 'com' AND c.customer_id = cp.com_id
           LEFT JOIN individual_renters ir ON c.CustomerType = 'ind' AND c.customer_id = ir.ind_id
           ORDER BY c.ContractDate DESC
@@ -89,11 +93,11 @@ class Contract {
       
       return result.recordset;
     } catch (error) {
-      throw new Error(`Error fetching contracts with customers: ${error.message}`);
+      throw new Error(`Error fetching contract displays with customers: ${error.message}`);
     }
   }
 
-  // Get contracts approaching deadline (including overdue)
+  // Get contract displays approaching deadline (including overdue)
   static async findApproachingDeadline(daysToDeadline) {
     try {
       const pool = getBMSPool();
@@ -121,7 +125,7 @@ class Contract {
             END as customer_phone,
             c.CustomerType as customer_type,
             DATEDIFF(day, GETDATE(), c.EndDate) as days_to_deadline
-          FROM Contract c
+          FROM ContractDisplay c
           LEFT JOIN company_profile cp ON c.CustomerType = 'com' AND c.customer_id = cp.com_id
           LEFT JOIN individual_renters ir ON c.CustomerType = 'ind' AND c.customer_id = ir.ind_id
           WHERE c.EndDate IS NOT NULL
@@ -138,21 +142,21 @@ class Contract {
 
       return result.recordset;
     } catch (error) {
-      throw new Error(`Error fetching contracts approaching deadline: ${error.message}`);
+      throw new Error(`Error fetching contract displays approaching deadline: ${error.message}`);
     }
   }
 
-  // Get contracts approaching deadline grouped by customer (customer_id)
+  // Get contract displays approaching deadline grouped by customer (customer_id)
   static async findApproachingDeadlineGroupedByCustomer(daysToDeadline) {
     try {
       const contracts = await this.findApproachingDeadline(daysToDeadline);
-
+      
       // Group contracts by customer (customer_id + CustomerType)
       const groupedContracts = {};
-
+      
       contracts.forEach(contract => {
         const customerKey = `${contract.customer_type}_${contract.customer_id}`;
-
+        
         if (!groupedContracts[customerKey]) {
           groupedContracts[customerKey] = {
             customer_id: contract.customer_id,
@@ -163,31 +167,31 @@ class Contract {
             contracts: []
           };
         }
-
+        
         groupedContracts[customerKey].contracts.push(contract);
       });
-
+      
       // Convert to array and sort by earliest deadline
       return Object.values(groupedContracts).map(group => {
         // Sort contracts within each group by deadline
         group.contracts.sort((a, b) => new Date(a.EndDate) - new Date(b.EndDate));
-
+        
         // Add summary information
         group.totalRent = group.contracts.reduce((sum, c) => sum + (c.RoomPrice || 0), 0);
         group.contractCount = group.contracts.length;
         group.earliestDeadline = group.contracts[0].EndDate;
         group.earliestDaysToDeadline = group.contracts[0].days_to_deadline;
-
+        
         return group;
       }).sort((a, b) => new Date(a.earliestDeadline) - new Date(b.earliestDeadline));
-
+      
     } catch (error) {
-      console.error('Error fetching grouped approaching deadline contracts:', error);
-      throw new Error(`Error fetching grouped approaching deadline contracts: ${error.message}`);
+      console.error('Error fetching grouped approaching deadline contract displays:', error);
+      throw new Error(`Error fetching grouped approaching deadline contract displays: ${error.message}`);
     }
   }
 
-  // Get contract by ID
+  // Get contract display by ID
   static async findById(id) {
     try {
       const pool = getBMSPool();
@@ -195,19 +199,19 @@ class Contract {
       
       const result = await request
         .input('id', sql.Int, id)
-        .query('SELECT * FROM Contract WHERE ContractID = @id');
+        .query('SELECT * FROM ContractDisplay WHERE ContractID = @id');
       
       if (result.recordset.length === 0) {
         return null;
       }
       
-      return new Contract(result.recordset[0]);
+      return new ContractDisplay(result.recordset[0]);
     } catch (error) {
-      throw new Error(`Error finding contract by ID: ${error.message}`);
+      throw new Error(`Error fetching contract display by ID: ${error.message}`);
     }
   }
 
-  // Get contracts by customer
+  // Get contract displays by customer
   static async findByCustomer(customerId, customerType) {
     try {
       const pool = getBMSPool();
@@ -217,35 +221,16 @@ class Contract {
         .input('customerId', sql.Int, customerId)
         .input('customerType', sql.NVarChar(10), customerType)
         .query(`
-          SELECT * FROM Contract 
+          SELECT * FROM ContractDisplay 
           WHERE customer_id = @customerId AND CustomerType = @customerType
           ORDER BY ContractDate DESC
         `);
       
-      return result.recordset.map(contract => new Contract(contract));
+      return result.recordset.map(contract => new ContractDisplay(contract));
     } catch (error) {
-      throw new Error(`Error fetching contracts by customer: ${error.message}`);
-    }
-  }
-
-  // Get active contracts
-  static async findActive() {
-    try {
-      const pool = getBMSPool();
-      const request = pool.request();
-      
-      const result = await request.query(`
-        SELECT * FROM Contract 
-        WHERE ContractStatus = 'active'
-        AND EndDate >= GETDATE()
-        ORDER BY EndDate ASC
-      `);
-      
-      return result.recordset.map(contract => new Contract(contract));
-    } catch (error) {
-      throw new Error(`Error fetching active contracts: ${error.message}`);
+      throw new Error(`Error fetching contract displays by customer: ${error.message}`);
     }
   }
 }
 
-module.exports = Contract;
+module.exports = ContractDisplay;

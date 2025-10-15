@@ -3,10 +3,14 @@ const User = require('./User');
 const SmsSchedulerJob = require('./SmsSchedulerJob');
 const SmsHistory = require('./SmsHistory');
 const Settings = require('./Settings');
+const Language = require('./Language');
+const DefaultLanguageSetting = require('./DefaultLanguageSetting');
 
 // BMS Database Models
 const Payment = require('./Payment');
 const Contract = require('./Contract');
+const PaymentDisplay = require('./PaymentDisplay');
+const ContractDisplay = require('./ContractDisplay');
 const Customer = require('./Customer');
 
 module.exports = {
@@ -15,9 +19,13 @@ module.exports = {
   SmsSchedulerJob,
   SmsHistory,
   Settings,
-  
+  Language,
+  DefaultLanguageSetting,
+
   // BMS Models
   Payment,
   Contract,
+  PaymentDisplay,
+  ContractDisplay,
   Customer
 };

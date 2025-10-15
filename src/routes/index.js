@@ -4,8 +4,11 @@ const express = require('express');
 const authRoutes = require('./auth');
 const customerRoutes = require('./customers');
 const smsRoutes = require('./sms');
+const paymentDisplayRoutes = require('./paymentDisplay');
+const contractDisplayRoutes = require('./contractDisplay');
 const settingsRoutes = require('./settings');
 const schedulerRoutes = require('./scheduler');
+const languageRoutes = require('./language');
 
 const router = express.Router();
 
@@ -19,8 +22,11 @@ router.get('/', (req, res) => {
       auth: '/api/auth',
       customers: '/api/customers',
       sms: '/api/sms',
+      paymentDisplay: '/api/payment-display',
+      contractDisplay: '/api/contract-display',
       settings: '/api/settings',
-      scheduler: '/api/scheduler'
+      scheduler: '/api/scheduler',
+      language: '/api/language'
     },
     documentation: {
       auth: {
@@ -71,6 +77,32 @@ router.get('/', (req, res) => {
         'POST /api/scheduler/trigger/sms-execution': 'Trigger SMS execution',
         'POST /api/scheduler/execute-jobs': 'Execute SMS jobs by criteria',
         'GET /api/scheduler/clients': 'Get connected Socket.IO clients'
+      },
+      language: {
+        'GET /api/language': 'Get all languages',
+        'GET /api/language/statistics': 'Get language statistics',
+        'GET /api/language/history': 'Get language settings history',
+        'GET /api/language/:id': 'Get language by ID',
+        'POST /api/language': 'Create new language',
+        'PUT /api/language/:id': 'Update language',
+        'DELETE /api/language/:id': 'Delete language',
+        'GET /api/language/default/current': 'Get current default language',
+        'POST /api/language/default/set': 'Set default language',
+        'POST /api/language/initialize': 'Initialize default language settings'
+      },
+      paymentDisplay: {
+        'GET /api/payment-display': 'Get all payment displays',
+        'GET /api/payment-display/approaching-deadlines': 'Get payment displays approaching deadline',
+        'GET /api/payment-display/approaching-deadlines/grouped': 'Get payment displays approaching deadline grouped by customer',
+        'GET /api/payment-display/:id': 'Get payment display by ID',
+        'GET /api/payment-display/customer/:customerType/:customerId': 'Get payment displays by customer'
+      },
+      contractDisplay: {
+        'GET /api/contract-display': 'Get all contract displays',
+        'GET /api/contract-display/approaching-deadlines': 'Get contract displays approaching deadline',
+        'GET /api/contract-display/approaching-deadlines/grouped': 'Get contract displays approaching deadline grouped by customer',
+        'GET /api/contract-display/:id': 'Get contract display by ID',
+        'GET /api/contract-display/customer/:customerType/:customerId': 'Get contract displays by customer'
       }
     },
     socketEvents: {
@@ -98,7 +130,10 @@ router.get('/', (req, res) => {
 router.use('/auth', authRoutes);
 router.use('/customers', customerRoutes);
 router.use('/sms', smsRoutes);
+router.use('/payment-display', paymentDisplayRoutes);
+router.use('/contract-display', contractDisplayRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/scheduler', schedulerRoutes);
+router.use('/language', languageRoutes);
 
 module.exports = router;

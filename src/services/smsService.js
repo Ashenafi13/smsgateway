@@ -1,4 +1,5 @@
-const { SmsSchedulerJob, SmsHistory, Settings } = require('../models');
+const { SmsSchedulerJob, SmsHistory, Settings, DefaultLanguageSetting } = require('../models');
+const DateUtils = require('../utils/dateUtils');
 
 class SmsService {
   // SMS Scheduler Jobs
@@ -263,6 +264,134 @@ class SmsService {
       }
     } catch (error) {
       throw new Error(`Failed to process SMS job: ${error.message}`);
+    }
+  }
+
+  // Helper method to create localized payment reminder message
+  static async createPaymentReminderMessage(payment, language = null) {
+    try {
+      // Get default language if not specified
+      const languageCode = language || await DefaultLanguageSetting.getDefaultLanguageCode();
+
+      // Calculate days remaining
+      const daysRemaining = DateUtils.calculateDaysRemaining(payment.end_date);
+
+      // Use language-specific customer name
+      let customerName;
+      if (languageCode === 'am') {
+        customerName = payment.customer_name_am || payment.customer_name || 'ውድ ደንበኛ';
+      } else {
+        customerName = payment.customer_name || 'Valued Customer';
+      }
+      const amount = payment.GroundTotal || payment.line_total || 0;
+
+      // Format currency in Ethiopian Birr
+      const formattedAmount = DateUtils.formatCurrency(amount, languageCode);
+
+      // Convert end date to Ethiopian calendar
+      const ethDate = DateUtils.toEthiopianDate(payment.end_date);
+      const formattedDate = DateUtils.formatEthiopianDate(ethDate, languageCode);
+
+      // Get urgency text based on days remaining
+      const urgencyText = DateUtils.getUrgencyText(daysRemaining, languageCode);
+
+      let message;
+      if (languageCode === 'am') {
+        message = `ውድ ${customerName}፣
+
+የእርስዎ የክፍል ${payment.room} ክፍያ ${urgencyText} (${formattedDate}) ይጠበቃል።
+
+መጠን: ${formattedAmount}
+መግለጫ: ${payment.description || 'ክፍያ ይጠበቃል'}
+
+
+
+የክፍያ መለያ: ${payment.id}
+
+እናመሰግናለን።`;
+      } else {
+        message = `Dear ${customerName},
+
+Your payment for Room ${payment.room} is due ${urgencyText} (${formattedDate}).
+
+Amount: ${formattedAmount}
+Description: ${payment.description || 'Payment due'}
+
+Please make your payment to avoid any inconvenience.
+
+Payment ID: ${payment.id}
+
+Thank you.`;
+      }
+
+      return message;
+    } catch (error) {
+      throw new Error(`Failed to create payment reminder message: ${error.message}`);
+    }
+  }
+
+  // Helper method to create localized contract reminder message
+  static async createContractReminderMessage(contract, language = null) {
+    try {
+      // Get default language if not specified
+      const languageCode = language || await DefaultLanguageSetting.getDefaultLanguageCode();
+
+      // Calculate days remaining
+      const daysRemaining = DateUtils.calculateDaysRemaining(contract.EndDate);
+
+      // Use language-specific customer name
+      let customerName;
+      if (languageCode === 'am') {
+        customerName = contract.customer_name_am || contract.customer_name || 'ውድ ደንበኛ';
+      } else {
+        customerName = contract.customer_name || 'Valued Customer';
+      }
+      const roomPrice = contract.RoomPrice || 0;
+
+      // Format currency in Ethiopian Birr
+      const formattedPrice = DateUtils.formatCurrency(roomPrice, languageCode);
+
+      // Convert dates to Ethiopian calendar
+      const ethEndDate = DateUtils.toEthiopianDate(contract.EndDate);
+      const ethStartDate = DateUtils.toEthiopianDate(contract.StartDate);
+      const formattedEndDate = DateUtils.formatEthiopianDate(ethEndDate, languageCode);
+      const formattedStartDate = DateUtils.formatEthiopianDate(ethStartDate, languageCode);
+
+      // Get urgency text based on days remaining
+      const urgencyText = DateUtils.getUrgencyText(daysRemaining, languageCode);
+
+      let message;
+      if (languageCode === 'am') {
+        message = `ውድ ${customerName}፣
+
+የእርስዎ የክፍል ${contract.RoomID} ኪራይ ውል ${urgencyText} (${formattedEndDate}) ይጠናቀቃል።
+
+የውል ጊዜ: ${formattedStartDate} - ${formattedEndDate}
+ወርሃዊ ኪራይ: ${formattedPrice}
+
+ውልዎን ለማደስ ወይም የመውጫ ሂደቶችን ለማዘጋጀት እባክዎን ያግኙን።
+
+የውል መለያ: ${contract.ContractID}
+
+እናመሰግናለን።`;
+      } else {
+        message = `Dear ${customerName},
+
+Your rental contract for Room ${contract.RoomID} expires ${urgencyText} (${formattedEndDate}).
+
+Contract Period: ${formattedStartDate} - ${formattedEndDate}
+Monthly Rent: ${formattedPrice}
+
+Please contact us to renew your contract or arrange move-out procedures.
+
+Contract ID: ${contract.ContractID}
+
+Thank you.`;
+      }
+
+      return message;
+    } catch (error) {
+      throw new Error(`Failed to create contract reminder message: ${error.message}`);
     }
   }
 }

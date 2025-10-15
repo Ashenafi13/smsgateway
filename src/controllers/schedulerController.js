@@ -1,7 +1,9 @@
-const { 
-  getSchedulerStatus, 
+const {
+  getSchedulerStatus,
   triggerPaymentDeadlineCheck,
   triggerContractDeadlineCheck,
+  triggerPaymentDisplayDeadlineCheck,
+  triggerContractDisplayDeadlineCheck,
   triggerSmsExecution,
   executeSmsJobsByCriteria,
   getExecutionStatistics
@@ -76,6 +78,42 @@ class SchedulerController {
       console.error('Trigger contract check error:', error);
       res.status(500).json({
         error: 'Failed to trigger contract deadline check',
+        message: error.message
+      });
+    }
+  }
+
+  // Manually trigger payment display deadline check
+  static async triggerPaymentDisplayCheck(req, res) {
+    try {
+      await triggerPaymentDisplayDeadlineCheck();
+
+      res.json({
+        success: true,
+        message: 'Payment display deadline check triggered successfully'
+      });
+    } catch (error) {
+      console.error('Trigger payment display check error:', error);
+      res.status(500).json({
+        error: 'Failed to trigger payment display deadline check',
+        message: error.message
+      });
+    }
+  }
+
+  // Manually trigger contract display deadline check
+  static async triggerContractDisplayCheck(req, res) {
+    try {
+      await triggerContractDisplayDeadlineCheck();
+
+      res.json({
+        success: true,
+        message: 'Contract display deadline check triggered successfully'
+      });
+    } catch (error) {
+      console.error('Trigger contract display check error:', error);
+      res.status(500).json({
+        error: 'Failed to trigger contract display deadline check',
         message: error.message
       });
     }

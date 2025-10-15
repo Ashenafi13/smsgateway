@@ -68,7 +68,24 @@ const notFound = (req, res, next) => {
   next(error);
 };
 
+// Validation error handler for express-validator
+const handleValidationErrors = (req, res, next) => {
+  const { validationResult } = require('express-validator');
+  const errors = validationResult(req);
+
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      error: 'Validation failed',
+      details: errors.array()
+    });
+  }
+
+  next();
+};
+
 module.exports = {
   errorHandler,
-  notFound
+  notFound,
+  handleValidationErrors
 };

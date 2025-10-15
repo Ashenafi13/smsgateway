@@ -36,6 +36,20 @@ router.post('/trigger/payment-check', SchedulerController.triggerPaymentCheck);
 router.post('/trigger/contract-check', SchedulerController.triggerContractCheck);
 
 /**
+ * @route   POST /api/scheduler/trigger/payment-display-check
+ * @desc    Manually trigger payment display deadline check
+ * @access  Private
+ */
+router.post('/trigger/payment-display-check', SchedulerController.triggerPaymentDisplayCheck);
+
+/**
+ * @route   POST /api/scheduler/trigger/contract-display-check
+ * @desc    Manually trigger contract display deadline check
+ * @access  Private
+ */
+router.post('/trigger/contract-display-check', SchedulerController.triggerContractDisplayCheck);
+
+/**
  * @route   POST /api/scheduler/trigger/sms-execution
  * @desc    Manually trigger SMS execution
  * @access  Private
