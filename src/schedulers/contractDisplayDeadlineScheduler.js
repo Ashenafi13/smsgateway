@@ -16,7 +16,7 @@ class ContractDisplayDeadlineScheduler {
     }
 
     // Run every 30 seconds for testing (configurable via environment)
-    const cronExpression = process.env.CONTRACT_DISPLAY_DEADLINE_CHECK_CRON || '*/30 * * * * *';
+    const cronExpression = process.env.DEADLINE_CHECK_CRON || '*/30 * * * * *';
     
     this.cronJob = cron.schedule(cronExpression, async () => {
       await this.checkContractDisplayDeadlines();
