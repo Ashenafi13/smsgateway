@@ -22,7 +22,7 @@ class SmsExecutionScheduler {
       await this.executePendingSmsJobs();
     }, {
       scheduled: false,
-      timezone: 'UTC'
+      timezone: 'Etc/UTC'
     });
 
     this.cronJob.start();

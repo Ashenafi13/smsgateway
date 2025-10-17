@@ -22,7 +22,7 @@ class PaymentDisplayDeadlineScheduler {
       await this.checkPaymentDisplayDeadlines();
     }, {
       scheduled: false,
-      timezone: 'UTC'
+      timezone: 'Etc/UTC'
     });
 
     this.cronJob.start();

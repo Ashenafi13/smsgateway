@@ -1,6 +1,6 @@
 const { SmsSchedulerJob, SmsHistory, Settings, DefaultLanguageSetting } = require('../models');
 const DateUtils = require('../utils/dateUtils');
-
+const axios = require('axios');
 class SmsService {
   // SMS Scheduler Jobs
   static async createSmsJob(jobData) {
@@ -205,25 +205,48 @@ class SmsService {
 
   // SMS Sending (placeholder function)
   static async sendSms(phoneNumber, message) {
-    try {
-      // This is a placeholder function for SMS sending
-      // In a real implementation, this would integrate with an SMS service provider
-      console.log(`Sending SMS to ${phoneNumber}: ${message}`);
+    // try {
+    //   // This is a placeholder function for SMS sending
+    //   // In a real implementation, this would integrate with an SMS service provider
+    //   console.log(`Sending SMS to ${phoneNumber}: ${message}`);
       
-      // Simulate SMS sending delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    //   // Simulate SMS sending delay
+    //   await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // For now, we'll just log and return success
-      // In production, replace this with actual SMS service integration
-      return {
-        success: true,
-        message: 'SMS sent successfully (simulated)',
-        phoneNumber,
-        sentAt: new Date()
-      };
-    } catch (error) {
-      throw new Error(`Failed to send SMS: ${error.message}`);
+    //   // For now, we'll just log and return success
+    //   // In production, replace this with actual SMS service integration
+    //   return {
+    //     success: true,
+    //     message: 'SMS sent successfully (simulated)',
+    //     phoneNumber,
+    //     sentAt: new Date()
+    //   };
+    // } catch (error) {
+    //   throw new Error(`Failed to send SMS: ${error.message}`);
+    // }
+
+const API_KEY = "f5b64f414903104f3bc755c178cf6fd9-6ca72a9c-203e-42a0-80c8-6cf92f3dd02f"; // get from Infobip dashboard
+const FROM = 'InfoSMS'; // test sender or default
+const TO = phoneNumber; // e.g., +2519xxxxxxx
+const BODY = message;
+
+if(!API_KEY){ console.error('Set INFOBIP_API_KEY'); process.exit(1); }
+
+axios.post(
+  'https://e5pzqn.api.infobip.com/sms/3/messages', // example endpoint — use Infobip docs for exact URL for your region
+  {
+    messages: [
+      { from: FROM, destinations: [{ to: TO }], content: { text: BODY} }
+    ]
+  },
+  {
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `App ${API_KEY}`
     }
+  }
+).then(r => console.log('Sent:', r.data))
+ .catch(e => console.error('Error:', e.response ? e.response.data : e.message));
   }
 
   // Process SMS job (send SMS and update status)

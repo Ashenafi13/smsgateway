@@ -22,7 +22,7 @@ class ContractDisplayDeadlineScheduler {
       await this.checkContractDisplayDeadlines();
     }, {
       scheduled: false,
-      timezone: 'UTC'
+      timezone: 'Etc/UTC'
     });
 
     this.cronJob.start();
