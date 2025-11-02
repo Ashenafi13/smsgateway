@@ -89,7 +89,7 @@ async function testAllConsolidatedFunctionality() {
       
       console.log('📧 Contract Message - Amharic:');
       console.log('-' .repeat(60));
-      const amharicContractMessage = ContractDeadlineScheduler.createConsolidatedContractReminderMessage(testGroup, 'am');
+      const amharicContractMessage = await ContractDeadlineScheduler.createConsolidatedContractReminderMessage(testGroup, 'am');
       console.log(amharicContractMessage);
       console.log('-' .repeat(60));
       console.log('');
@@ -118,7 +118,7 @@ async function testAllConsolidatedFunctionality() {
       // Test consolidated payment display message
       console.log('📧 Consolidated Payment Display Message (English):');
       console.log('-' .repeat(60));
-      const paymentDisplayMessage = PaymentDisplayDeadlineScheduler.createConsolidatedPaymentDisplayReminderMessage(testPaymentDisplayGroup, 'en');
+      const paymentDisplayMessage = await PaymentDisplayDeadlineScheduler.createConsolidatedPaymentDisplayReminderMessage(testPaymentDisplayGroup, 'en');
       console.log(paymentDisplayMessage);
       console.log('-' .repeat(60));
       console.log('');
@@ -147,7 +147,7 @@ async function testAllConsolidatedFunctionality() {
       // Test consolidated contract display message
       console.log('📧 Consolidated Contract Display Message (English):');
       console.log('-' .repeat(60));
-      const contractDisplayMessage = ContractDisplayDeadlineScheduler.createConsolidatedContractDisplayReminderMessage(testContractDisplayGroup, 'en');
+      const contractDisplayMessage = await ContractDisplayDeadlineScheduler.createConsolidatedContractDisplayReminderMessage(testContractDisplayGroup, 'en');
       console.log(contractDisplayMessage);
       console.log('-' .repeat(60));
       console.log('');

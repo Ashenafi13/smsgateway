@@ -50,7 +50,7 @@ async function testDisplayTables() {
         console.log(`   Sample group: ${group.customer_name}, ${group.paymentCount} payments, Total: ${group.totalAmount}`);
         
         // Test message generation
-        const message = PaymentDisplayDeadlineScheduler.createConsolidatedPaymentDisplayReminderMessage(group, 'en');
+        const message = await PaymentDisplayDeadlineScheduler.createConsolidatedPaymentDisplayReminderMessage(group, 'en');
         console.log(`   Message preview: ${message.substring(0, 100)}...`);
       }
     } catch (error) {

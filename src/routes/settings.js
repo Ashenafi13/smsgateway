@@ -36,4 +36,18 @@ router.get('/days-to-deadline', SettingsController.getNumberOfDaysToDeadline);
  */
 router.put('/days-to-deadline', settingsValidation.update, SettingsController.updateNumberOfDaysToDeadline);
 
+/**
+ * @route   GET /api/settings/sms
+ * @desc    Get SMS settings
+ * @access  Private
+ */
+router.get('/sms', SettingsController.getSmsSettings);
+
+/**
+ * @route   PUT /api/settings/sms
+ * @desc    Update SMS settings
+ * @access  Private
+ */
+router.put('/sms', settingsValidation.update, SettingsController.updateSmsSettings);
+
 module.exports = router;

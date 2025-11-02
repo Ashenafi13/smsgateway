@@ -120,8 +120,33 @@ const settingsValidation = {
   // Update settings validation
   update: [
     body('numberOfDaysToDeadline')
+      .optional()
       .isInt({ min: 1, max: 365 })
-      .withMessage('Number of days to deadline must be between 1 and 365')
+      .withMessage('Number of days to deadline must be between 1 and 365'),
+
+    body('smsApiToken')
+      .optional()
+      .trim()
+      .isLength({ max: 255 })
+      .withMessage('SMS API token must not exceed 255 characters'),
+
+    body('smsShortcodeId')
+      .optional()
+      .trim()
+      .isLength({ max: 50 })
+      .withMessage('SMS shortcode ID must not exceed 50 characters'),
+
+    body('smsCallbackUrl')
+      .optional()
+      .trim()
+      .isLength({ max: 255 })
+      .withMessage('SMS callback URL must not exceed 255 characters')
+      .custom((value) => {
+        if (value && !value.match(/^https?:\/\/.+/)) {
+          throw new Error('SMS callback URL must be a valid HTTP/HTTPS URL');
+        }
+        return true;
+      })
   ]
 };
 

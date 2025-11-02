@@ -203,93 +203,97 @@ class SmsService {
     }
   }
 
-  // SMS Sending (placeholder function)
-  static async sendSms(phoneNumber, message) {
-    // try {
-    //   // This is a placeholder function for SMS sending
-    //   // In a real implementation, this would integrate with an SMS service provider
-    //   console.log(`Sending SMS to ${phoneNumber}: ${message}`);
-      
-    //   // Simulate SMS sending delay
-    //   await new Promise(resolve => setTimeout(resolve, 1000));
-      
-    //   // For now, we'll just log and return success
-    //   // In production, replace this with actual SMS service integration
-    //   return {
-    //     success: true,
-    //     message: 'SMS sent successfully (simulated)',
-    //     phoneNumber,
-    //     sentAt: new Date()
-    //   };
-    // } catch (error) {
-    //   throw new Error(`Failed to send SMS: ${error.message}`);
-    // }
-
-const API_KEY = "f5b64f414903104f3bc755c178cf6fd9-6ca72a9c-203e-42a0-80c8-6cf92f3dd02f"; // get from Infobip dashboard
-const FROM = 'InfoSMS'; // test sender or default
-const TO = phoneNumber; // e.g., +2519xxxxxxx
-const BODY = message;
-
-if(!API_KEY){ console.error('Set INFOBIP_API_KEY'); process.exit(1); }
-
-axios.post(
-  'https://e5pzqn.api.infobip.com/sms/3/messages', // example endpoint — use Infobip docs for exact URL for your region
-  {
-    messages: [
-      { from: FROM, destinations: [{ to: TO }], content: { text: BODY} }
-    ]
-  },
-  {
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `App ${API_KEY}`
+  
+  // SMS Settings
+  static async getSmsSettings() {
+    try {
+      const settings = await Settings.get();
+      return {
+        smsApiToken: settings.smsApiToken ? '***' + settings.smsApiToken.slice(-4) : null, // Mask token for security
+        smsShortcodeId: settings.smsShortcodeId,
+        smsCallbackUrl: settings.smsCallbackUrl
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch SMS settings: ${error.message}`);
     }
   }
-).then(r => console.log('Sent:', r.data))
- .catch(e => console.error('Error:', e.response ? e.response.data : e.message));
+
+  static async updateSmsSettings(smsSettingsData) {
+    try {
+      const settings = await Settings.update(smsSettingsData);
+      return {
+        smsApiToken: settings.smsApiToken ? '***' + settings.smsApiToken.slice(-4) : null, // Mask token for security
+        smsShortcodeId: settings.smsShortcodeId,
+        smsCallbackUrl: settings.smsCallbackUrl
+      };
+    } catch (error) {
+      throw new Error(`Failed to update SMS settings: ${error.message}`);
+    }
   }
 
-  // Process SMS job (send SMS and update status)
-  static async processSmsJob(jobId) {
+  // SMS Sending using GeezSMS API
+  static async sendSms(phoneNumber, message) {
     try {
-      const job = await SmsSchedulerJob.findById(jobId);
-      if (!job) {
-        throw new Error('SMS job not found');
+      // Get SMS settings from database
+      const settings = await Settings.get();
+
+      if (!settings.smsApiToken) {
+        throw new Error('SMS API token not configured. Please configure SMS settings first.');
       }
 
-      if (job.jobStatus !== 'pending') {
-        throw new Error('Job is not in pending status');
+      // Prepare form data for GeezSMS API
+      const formData = new URLSearchParams();
+      formData.append('token', settings.smsApiToken);
+      formData.append('phone', phoneNumber);
+      formData.append('msg', message);
+
+      // Add optional parameters if configured
+      if (settings.smsShortcodeId) {
+        formData.append('shortcode_id', settings.smsShortcodeId);
       }
 
-      try {
-        // Send SMS
-        const smsResult = await this.sendSms(job.phoneNumber, job.message);
-        
-        // Update job status to completed
-        await SmsSchedulerJob.updateStatus(jobId, 'completed');
-        
-        // Create SMS history record
-        await SmsHistory.create({
-          phoneNumber: job.phoneNumber,
-          message: job.message,
-          type: job.jobtype
-        });
+      if (settings.smsCallbackUrl) {
+        formData.append('callback', settings.smsCallbackUrl);
+      }
 
+      // Send SMS using GeezSMS API
+      const response = await axios.post(
+        'https://api.geezsms.com/api/v1/sms/send',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          }
+        }
+      );
+
+      // Check if the request was successful
+      if (response.status === 200) {
+        console.log('SMS sent successfully:', response.data);
         return {
           success: true,
-          message: 'SMS job processed successfully',
-          smsResult
+          message: 'SMS sent successfully',
+          phoneNumber,
+          sentAt: new Date(),
+          response: response.data
         };
-      } catch (smsError) {
-        // Update job status to failed
-        await SmsSchedulerJob.updateStatus(jobId, 'failed');
-        throw new Error(`SMS sending failed: ${smsError.message}`);
+      } else {
+        throw new Error(`SMS API returned status ${response.status}: ${response.data}`);
       }
+
     } catch (error) {
-      throw new Error(`Failed to process SMS job: ${error.message}`);
+      console.error('SMS sending error:', error);
+
+      // Handle axios errors
+      if (error.response) {
+        throw new Error(`SMS API error: ${error.response.status} - ${error.response.data || error.response.statusText}`);
+      } else if (error.request) {
+        throw new Error('SMS API request failed: No response received');
+      } else {
+        throw new Error(`Failed to send SMS: ${error.message}`);
+      }
     }
   }
-
   // Helper method to create localized payment reminder message
   static async createPaymentReminderMessage(payment, language = null) {
     try {

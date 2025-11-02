@@ -4,6 +4,9 @@ class Settings {
   constructor(data) {
     this.id = data.id;
     this.numberOfDaysToDeadline = data.numberOfDaysToDeadline;
+    this.smsApiToken = data.smsApiToken;
+    this.smsShortcodeId = data.smsShortcodeId;
+    this.smsCallbackUrl = data.smsCallbackUrl;
   }
 
   // Get settings
@@ -12,7 +15,7 @@ class Settings {
       const pool = getSMSPool();
       const request = pool.request();
       
-      const result = await request.query('SELECT TOP 1 * FROM tbls_settings');
+      const result = await request.query('SELECT TOP 1 * FROM tbls_settings_sms');
       
       if (result.recordset.length === 0) {
         // Create default settings if none exist
@@ -33,10 +36,13 @@ class Settings {
       
       const result = await request
         .input('numberOfDaysToDeadline', sql.Int, 7) // Default 7 days
+        .input('smsApiToken', sql.NVarChar(255), null)
+        .input('smsShortcodeId', sql.NVarChar(50), null)
+        .input('smsCallbackUrl', sql.NVarChar(255), null)
         .query(`
-          INSERT INTO tbls_settings (numberOfDaysToDeadline)
+          INSERT INTO tbls_settings_sms (numberOfDaysToDeadline, smsApiToken, smsShortcodeId, smsCallbackUrl)
           OUTPUT INSERTED.*
-          VALUES (@numberOfDaysToDeadline)
+          VALUES (@numberOfDaysToDeadline, @smsApiToken, @smsShortcodeId, @smsCallbackUrl)
         `);
       
       return new Settings(result.recordset[0]);
@@ -58,10 +64,16 @@ class Settings {
         // Update existing settings
         const result = await request
           .input('id', sql.Int, existingSettings.id)
-          .input('numberOfDaysToDeadline', sql.Int, settingsData.numberOfDaysToDeadline)
+          .input('numberOfDaysToDeadline', sql.Int, settingsData.numberOfDaysToDeadline || existingSettings.numberOfDaysToDeadline)
+          .input('smsApiToken', sql.NVarChar(255), settingsData.smsApiToken !== undefined ? settingsData.smsApiToken : existingSettings.smsApiToken)
+          .input('smsShortcodeId', sql.NVarChar(50), settingsData.smsShortcodeId !== undefined ? settingsData.smsShortcodeId : existingSettings.smsShortcodeId)
+          .input('smsCallbackUrl', sql.NVarChar(255), settingsData.smsCallbackUrl !== undefined ? settingsData.smsCallbackUrl : existingSettings.smsCallbackUrl)
           .query(`
-            UPDATE tbls_settings 
-            SET numberOfDaysToDeadline = @numberOfDaysToDeadline
+            UPDATE tbls_settings_sms
+            SET numberOfDaysToDeadline = @numberOfDaysToDeadline,
+                smsApiToken = @smsApiToken,
+                smsShortcodeId = @smsShortcodeId,
+                smsCallbackUrl = @smsCallbackUrl
             OUTPUT INSERTED.*
             WHERE id = @id
           `);
@@ -70,11 +82,14 @@ class Settings {
       } else {
         // Create new settings if none exist
         const result = await request
-          .input('numberOfDaysToDeadline', sql.Int, settingsData.numberOfDaysToDeadline)
+          .input('numberOfDaysToDeadline', sql.Int, settingsData.numberOfDaysToDeadline || 7)
+          .input('smsApiToken', sql.NVarChar(255), settingsData.smsApiToken || null)
+          .input('smsShortcodeId', sql.NVarChar(50), settingsData.smsShortcodeId || null)
+          .input('smsCallbackUrl', sql.NVarChar(255), settingsData.smsCallbackUrl || null)
           .query(`
-            INSERT INTO tbls_settings (numberOfDaysToDeadline)
+            INSERT INTO tbls_settings_sms (numberOfDaysToDeadline, smsApiToken, smsShortcodeId, smsCallbackUrl)
             OUTPUT INSERTED.*
-            VALUES (@numberOfDaysToDeadline)
+            VALUES (@numberOfDaysToDeadline, @smsApiToken, @smsShortcodeId, @smsCallbackUrl)
           `);
         
         return new Settings(result.recordset[0]);

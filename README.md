@@ -111,6 +111,49 @@ The server will start on the configured port (default: 3000) and you can access:
 - API: `http://localhost:3000/api`
 - Health Check: `http://localhost:3000/health`
 
+## SMS Configuration
+
+The system uses GeezSMS API for sending SMS messages. To configure SMS settings:
+
+### 1. Configure SMS Settings via API
+
+Use the following endpoints to configure SMS settings:
+
+```bash
+# Get current SMS settings
+GET /api/settings/sms
+
+# Update SMS settings
+PUT /api/settings/sms
+{
+  "smsApiToken": "your-geezsms-api-token",
+  "smsShortcodeId": "your-shortcode-id", // optional
+  "smsCallbackUrl": "https://your-domain.com/callback" // optional
+}
+```
+
+### 2. GeezSMS API Configuration
+
+The system integrates with GeezSMS API using the following parameters:
+- **token**: Your GeezSMS API token (required)
+- **phone**: Recipient phone number (automatically set)
+- **msg**: Message content (automatically set)
+- **shortcode_id**: Optional shortcode ID for branded SMS
+- **callback**: Optional callback URL for delivery notifications
+
+### 3. Testing SMS Functionality
+
+Run the test script to verify SMS configuration:
+
+```bash
+node test_sms.js
+```
+
+This will test:
+- Settings retrieval
+- SMS configuration updates
+- SMS sending functionality
+
 ## API Documentation
 
 ### Authentication Endpoints
