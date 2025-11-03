@@ -1,6 +1,8 @@
 const cron = require('node-cron');
 const { Payment, Settings, SmsSchedulerJob, DefaultLanguageSetting } = require('../models');
 const DateUtils = require('../utils/dateUtils');
+const SmsTemplateService = require('../services/smsTemplateService');
+const PenaltyService = require('../services/penaltyService');
 
 class PaymentDeadlineScheduler {
   constructor() {
@@ -53,9 +55,11 @@ class PaymentDeadlineScheduler {
       const daysToDeadline = await Settings.getNumberOfDaysToDeadline();
       console.log(`Checking for payments due within ${daysToDeadline} days`);
 
-      // Get payments approaching deadline grouped by customer
-      const customerGroups = await Payment.findApproachingDeadlineGroupedByCustomer(daysToDeadline);
-      console.log(`Found ${customerGroups.length} customers with approaching payment deadlines`);
+      // Get payments approaching deadline grouped by customer AND deadline date
+      // Spaces with same deadline are consolidated into ONE message
+      // Spaces with different deadlines get SEPARATE messages
+      const customerGroups = await Payment.findApproachingDeadlineGroupedByCustomerAndDate(daysToDeadline);
+      console.log(`Found ${customerGroups.length} payment deadline groups (customer + date combinations)`);
 
       // Log details of found customer groups
       if (customerGroups.length > 0) {
@@ -121,8 +125,8 @@ class PaymentDeadlineScheduler {
       // Get default language
       const defaultLanguageCode = await DefaultLanguageSetting.getDefaultLanguageCode();
 
-      // Create consolidated SMS message
-      const message = PaymentDeadlineScheduler.createConsolidatedPaymentReminderMessage(customerGroup, defaultLanguageCode);
+      // Create consolidated SMS message using the centralized template service
+      const message = await SmsTemplateService.createConsolidatedPaymentReminderMessage(customerGroup, defaultLanguageCode);
 
       // Calculate execution date (send reminder immediately for now)
       const executeDate = new Date();
@@ -176,8 +180,8 @@ class PaymentDeadlineScheduler {
       // Get default language
       const defaultLanguageCode = await DefaultLanguageSetting.getDefaultLanguageCode();
 
-      // Create SMS message
-      const message = PaymentDeadlineScheduler.createPaymentReminderMessage(payment, daysRemaining, defaultLanguageCode);
+      // Create SMS message using the centralized template service
+      const message = await SmsTemplateService.createPaymentReminderMessage(payment, defaultLanguageCode);
 
       // Calculate execution date (send reminder immediately for now)
       const executeDate = new Date();
@@ -198,128 +202,18 @@ class PaymentDeadlineScheduler {
     }
   }
 
-  // Create payment reminder message
-  static createPaymentReminderMessage(payment, daysRemaining, language = 'en') {
-    // Use language-specific customer name
-    let customerName;
-    if (language === 'am') {
-      customerName = payment.customer_name_am || payment.customer_name || 'ውድ ደንበኛ';
-    } else {
-      customerName = payment.customer_name || 'Valued Customer';
-    }
-    const amount = payment.GroundTotal || payment.line_total || 0;
-
-    // Format currency in Ethiopian Birr
-    const formattedAmount = DateUtils.formatCurrency(amount, language);
-
-    // Convert end date to Ethiopian calendar
-    const ethDate = DateUtils.toEthiopianDate(payment.end_date);
-    const formattedDate = DateUtils.formatEthiopianDate(ethDate, language);
-
-    // Get urgency text based on days remaining
-    const urgencyText = DateUtils.getUrgencyText(daysRemaining, language);
-
-    let message;
-    if (language === 'am') {
-      message = `ውድ ${customerName}፣
-
-የእርስዎ የክፍል ${payment.room} ክፍያ ${urgencyText} (${formattedDate}) ይጠበቃል።
-
-መጠን: ${formattedAmount}
-መግለጫ: ${payment.description || 'ክፍያ ይጠበቃል'}
-
-ምንም ችግር እንዳይደርስብዎ ክፍያዎን ያድርጉ።
-
-የክፍያ መለያ: ${payment.id}
-
-እናመሰግናለን።`;
-    } else {
-      message = `Dear ${customerName},
-
-Your payment for Room ${payment.room} is due ${urgencyText} (${formattedDate}).
-
-Amount: ${formattedAmount}
-Description: ${payment.description || 'Payment due'}
-
-Please make your payment to avoid any inconvenience.
-
-Payment ID: ${payment.id}
-
-Thank you.`;
-    }
-
-    return message;
+  // Legacy method - now using centralized SmsTemplateService
+  // This method is kept for backward compatibility but delegates to the new service
+  static async createPaymentReminderMessage(payment, daysRemaining, language = 'en') {
+    return await SmsTemplateService.createPaymentReminderMessage(payment, language);
   }
 
   // Create consolidated payment reminder message for multiple payments
-  static createConsolidatedPaymentReminderMessage(customerGroup, language = 'en') {
-    // Use language-specific customer name
-    let customerName;
-    if (language === 'am') {
-      customerName = customerGroup.customer_name_am || customerGroup.customer_name || 'ውድ ደንበኛ';
-    } else {
-      customerName = customerGroup.customer_name || 'Valued Customer';
-    }
-
-    // Format total amount in Ethiopian Birr
-    const formattedTotalAmount = DateUtils.formatCurrency(customerGroup.totalAmount, language);
-
-    // Get urgency text based on earliest deadline
-    const urgencyText = DateUtils.getUrgencyText(customerGroup.earliestDaysToDeadline, language);
-
-    // Convert earliest deadline to Ethiopian calendar
-    const ethDate = DateUtils.toEthiopianDate(customerGroup.earliestDeadline);
-    const formattedDate = DateUtils.formatEthiopianDate(ethDate, language);
-
-    let message;
-    if (language === 'am') {
-      // Amharic message for multiple payments
-      let paymentDetails = '';
-      customerGroup.payments.forEach((payment, index) => {
-        const paymentAmount = DateUtils.formatCurrency(payment.GroundTotal || payment.line_total || 0, language);
-        const paymentEthDate = DateUtils.toEthiopianDate(payment.end_date);
-        const paymentFormattedDate = DateUtils.formatEthiopianDate(paymentEthDate, language);
-        const daysRemainingText = DateUtils.getDaysRemainingText(payment.days_to_deadline, language);
-
-        paymentDetails += `${index + 1}. ክፍል ${payment.room}: ${paymentAmount} - ${daysRemainingText} (${paymentFormattedDate})\n`;
-      });
-
-      message = `ውድ ${customerName}፣
-
-እርስዎ ${customerGroup.paymentCount} የክፍያ ግዴታዎች አሉዎት፡
-
-${paymentDetails}
-ጠቅላላ መጠን: ${formattedTotalAmount}
-
-ምንም ችግር እንዳይደርስብዎ ክፍያዎችዎን ያድርጉ።
-
-እናመሰግናለን።`;
-    } else {
-      // English message for multiple payments
-      let paymentDetails = '';
-      customerGroup.payments.forEach((payment, index) => {
-        const paymentAmount = DateUtils.formatCurrency(payment.GroundTotal || payment.line_total || 0, language);
-        const paymentEthDate = DateUtils.toEthiopianDate(payment.end_date);
-        const paymentFormattedDate = DateUtils.formatEthiopianDate(paymentEthDate, language);
-        const daysRemainingText = DateUtils.getDaysRemainingText(payment.days_to_deadline, language);
-
-        paymentDetails += `${index + 1}. Room ${payment.room}: ${paymentAmount} - ${daysRemainingText} (${paymentFormattedDate})\n`;
-      });
-
-      message = `Dear ${customerName},
-
-You have ${customerGroup.paymentCount} payment(s) due:
-
-${paymentDetails}
-Total Amount: ${formattedTotalAmount}
-
-Please make your payments to avoid any inconvenience.
-
-Thank you.`;
-    }
-
-    return message;
+  static async createConsolidatedPaymentReminderMessage(customerGroup, language = 'en') {
+    return await SmsTemplateService.createConsolidatedPaymentReminderMessage(customerGroup, language);
   }
+
+
 
   // Manual trigger for testing
   async triggerManualCheck() {

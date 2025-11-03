@@ -187,6 +187,52 @@ class Contract {
     }
   }
 
+  // Get contracts approaching deadline grouped by customer AND deadline date
+  // This ensures spaces with different deadlines get separate SMS messages
+  static async findApproachingDeadlineGroupedByCustomerAndDate(daysToDeadline) {
+    try {
+      const contracts = await this.findApproachingDeadline(daysToDeadline);
+
+      // Group contracts by customer (customer_id + CustomerType) AND deadline date
+      const groupedContracts = {};
+
+      contracts.forEach(contract => {
+        // Normalize the date to YYYY-MM-DD format for consistent grouping
+        const dateStr = new Date(contract.EndDate).toISOString().split('T')[0];
+        const groupKey = `${contract.customer_type}_${contract.customer_id}_${dateStr}`;
+
+        if (!groupedContracts[groupKey]) {
+          groupedContracts[groupKey] = {
+            customer_id: contract.customer_id,
+            customer_type: contract.customer_type,
+            customer_name: contract.customer_name,
+            customer_name_am: contract.customer_name_am,
+            customer_phone: contract.customer_phone,
+            deadline_date: contract.EndDate,
+            contracts: []
+          };
+        }
+
+        groupedContracts[groupKey].contracts.push(contract);
+      });
+
+      // Convert to array and sort by deadline date
+      return Object.values(groupedContracts).map(group => {
+        // Add summary information
+        group.totalRent = group.contracts.reduce((sum, c) => sum + (c.RoomPrice || 0), 0);
+        group.contractCount = group.contracts.length;
+        group.earliestDeadline = group.deadline_date;
+        group.earliestDaysToDeadline = group.contracts[0].days_to_deadline;
+
+        return group;
+      }).sort((a, b) => new Date(a.earliestDeadline) - new Date(b.earliestDeadline));
+
+    } catch (error) {
+      console.error('Error fetching grouped approaching deadline contracts by date:', error);
+      throw new Error(`Error fetching grouped approaching deadline contracts by date: ${error.message}`);
+    }
+  }
+
   // Get contract by ID
   static async findById(id) {
     try {

@@ -151,13 +151,13 @@ class PaymentDisplay {
   static async findApproachingDeadlineGroupedByCustomer(daysToDeadline) {
     try {
       const payments = await this.findApproachingDeadline(daysToDeadline);
-      
+
       // Group payments by customer (paid_by + customer_type)
       const groupedPayments = {};
-      
+
       payments.forEach(payment => {
         const customerKey = `${payment.customer_type}_${payment.paid_by}`;
-        
+
         if (!groupedPayments[customerKey]) {
           groupedPayments[customerKey] = {
             customer_id: payment.paid_by,
@@ -168,27 +168,73 @@ class PaymentDisplay {
             payments: []
           };
         }
-        
+
         groupedPayments[customerKey].payments.push(payment);
       });
-      
+
       // Convert to array and sort by earliest deadline
       return Object.values(groupedPayments).map(group => {
         // Sort payments within each group by deadline
         group.payments.sort((a, b) => new Date(a.end_date) - new Date(b.end_date));
-        
+
         // Add summary information
         group.totalAmount = group.payments.reduce((sum, p) => sum + (p.GroundTotal || p.line_total || 0), 0);
         group.paymentCount = group.payments.length;
         group.earliestDeadline = group.payments[0].end_date;
         group.earliestDaysToDeadline = group.payments[0].days_to_deadline;
-        
+
         return group;
       }).sort((a, b) => new Date(a.earliestDeadline) - new Date(b.earliestDeadline));
-      
+
     } catch (error) {
       console.error('Error fetching grouped approaching deadline payment displays:', error);
       throw new Error(`Error fetching grouped approaching deadline payment displays: ${error.message}`);
+    }
+  }
+
+  // Get payment displays approaching deadline grouped by customer AND deadline date
+  // This ensures spaces with different deadlines get separate SMS messages
+  static async findApproachingDeadlineGroupedByCustomerAndDate(daysToDeadline) {
+    try {
+      const payments = await this.findApproachingDeadline(daysToDeadline);
+
+      // Group payments by customer (paid_by + customer_type) AND deadline date
+      const groupedPayments = {};
+
+      payments.forEach(payment => {
+        // Normalize the date to YYYY-MM-DD format for consistent grouping
+        const dateStr = new Date(payment.end_date).toISOString().split('T')[0];
+        const groupKey = `${payment.customer_type}_${payment.paid_by}_${dateStr}`;
+
+        if (!groupedPayments[groupKey]) {
+          groupedPayments[groupKey] = {
+            customer_id: payment.paid_by,
+            customer_type: payment.customer_type,
+            customer_name: payment.customer_name,
+            customer_name_am: payment.customer_name_am,
+            customer_phone: payment.customer_phone,
+            deadline_date: payment.end_date,
+            payments: []
+          };
+        }
+
+        groupedPayments[groupKey].payments.push(payment);
+      });
+
+      // Convert to array and sort by deadline date
+      return Object.values(groupedPayments).map(group => {
+        // Add summary information
+        group.totalAmount = group.payments.reduce((sum, p) => sum + (p.GroundTotal || p.line_total || 0), 0);
+        group.paymentCount = group.payments.length;
+        group.earliestDeadline = group.deadline_date;
+        group.earliestDaysToDeadline = group.payments[0].days_to_deadline;
+
+        return group;
+      }).sort((a, b) => new Date(a.earliestDeadline) - new Date(b.earliestDeadline));
+
+    } catch (error) {
+      console.error('Error fetching grouped approaching deadline payment displays by date:', error);
+      throw new Error(`Error fetching grouped approaching deadline payment displays by date: ${error.message}`);
     }
   }
 

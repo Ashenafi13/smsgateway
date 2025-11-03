@@ -1,4 +1,5 @@
-const { Template } = require('../models');
+const { Template, PenalityPeriod } = require('../models');
+const PenaltyService = require('../services/penaltyService');
 
 class TemplateController {
   // Get all templates
@@ -261,6 +262,59 @@ class TemplateController {
       });
     } catch (error) {
       console.error('Error generating template preview:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Internal Server Error',
+        message: error.message
+      });
+    }
+  }
+
+  // Get penalty periods information
+  static async getPenaltyPeriods(req, res) {
+    try {
+      const penaltyPeriods = await PenaltyService.getAllPenaltyPeriods();
+
+      res.status(200).json({
+        success: true,
+        data: penaltyPeriods,
+        message: 'Penalty periods retrieved successfully'
+      });
+    } catch (error) {
+      console.error('Error getting penalty periods:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Internal Server Error',
+        message: error.message
+      });
+    }
+  }
+
+  // Calculate penalty for a payment amount and overdue days
+  static async calculatePenalty(req, res) {
+    try {
+      const { paymentAmount, overdueDays } = req.body;
+
+      if (!paymentAmount || overdueDays === undefined) {
+        return res.status(400).json({
+          success: false,
+          error: 'Bad Request',
+          message: 'paymentAmount and overdueDays are required'
+        });
+      }
+
+      const penaltyDetails = await PenalityPeriod.calculatePenaltyWithDetails(
+        parseFloat(paymentAmount),
+        parseInt(overdueDays)
+      );
+
+      res.status(200).json({
+        success: true,
+        data: penaltyDetails,
+        message: 'Penalty calculated successfully'
+      });
+    } catch (error) {
+      console.error('Error calculating penalty:', error);
       res.status(500).json({
         success: false,
         error: 'Internal Server Error',

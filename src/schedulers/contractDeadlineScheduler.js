@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const { Contract, Settings, SmsSchedulerJob, DefaultLanguageSetting } = require('../models');
 const DateUtils = require('../utils/dateUtils');
+const SmsTemplateService = require('../services/smsTemplateService');
 
 class ContractDeadlineScheduler {
   constructor() {
@@ -54,6 +55,7 @@ class ContractDeadlineScheduler {
       console.log(`Checking for contracts expiring within ${daysToDeadline} days`);
 
       // Get contracts approaching deadline grouped by customer
+      // All spaces for a customer are consolidated into ONE message
       const customerGroups = await Contract.findApproachingDeadlineGroupedByCustomer(daysToDeadline);
       console.log(`Found ${customerGroups.length} customers with approaching contract deadlines`);
 
@@ -121,8 +123,8 @@ class ContractDeadlineScheduler {
       // Get default language
       const defaultLanguageCode = await DefaultLanguageSetting.getDefaultLanguageCode();
 
-      // Create consolidated SMS message
-      const message = ContractDeadlineScheduler.createConsolidatedContractReminderMessage(customerGroup, defaultLanguageCode);
+      // Create consolidated SMS message using the centralized template service
+      const message = await SmsTemplateService.createConsolidatedContractReminderMessage(customerGroup, defaultLanguageCode);
 
       // Calculate execution date (send reminder immediately for now)
       const executeDate = new Date();
@@ -171,8 +173,8 @@ class ContractDeadlineScheduler {
       // Get default language
       const defaultLanguageCode = await DefaultLanguageSetting.getDefaultLanguageCode();
 
-      // Create SMS message
-      const message = ContractDeadlineScheduler.createContractReminderMessage(contract, daysRemaining, defaultLanguageCode);
+      // Create SMS message using the centralized template service
+      const message = await SmsTemplateService.createContractReminderMessage(contract, defaultLanguageCode);
 
       // Calculate execution date (send reminder immediately for now)
       const executeDate = new Date();
@@ -193,129 +195,15 @@ class ContractDeadlineScheduler {
     }
   }
 
-  // Create contract reminder message
-  static createContractReminderMessage(contract, daysRemaining, language = 'en') {
-    // Use language-specific customer name
-    let customerName;
-    if (language === 'am') {
-      customerName = contract.customer_name_am || contract.customer_name || 'ውድ ደንበኛ';
-    } else {
-      customerName = contract.customer_name || 'Valued Customer';
-    }
-    const roomPrice = contract.RoomPrice || 0;
-
-    // Format currency in Ethiopian Birr
-    const formattedPrice = DateUtils.formatCurrency(roomPrice, language);
-
-    // Convert dates to Ethiopian calendar
-    const ethEndDate = DateUtils.toEthiopianDate(contract.EndDate);
-    const ethStartDate = DateUtils.toEthiopianDate(contract.StartDate);
-    const formattedEndDate = DateUtils.formatEthiopianDate(ethEndDate, language);
-    const formattedStartDate = DateUtils.formatEthiopianDate(ethStartDate, language);
-
-    // Get urgency text based on days remaining
-    const urgencyText = DateUtils.getUrgencyText(daysRemaining, language);
-
-    let message;
-    if (language === 'am') {
-      message = `ውድ ${customerName}፣
-
-የእርስዎ የክፍል ${contract.RoomID} ኪራይ ውል ${urgencyText} (${formattedEndDate}) ይጠናቀቃል።
-
-የውል ጊዜ: ${formattedStartDate} - ${formattedEndDate}
-ወርሃዊ ኪራይ: ${formattedPrice}
-
-ውልዎን ለማደስ ወይም የመውጫ ሂደቶችን ለማዘጋጀት እባክዎን ያግኙን።
-
-የውል መለያ: ${contract.ContractID}
-
-እናመሰግናለን።`;
-    } else {
-      message = `Dear ${customerName},
-
-Your rental contract for Room ${contract.RoomID} expires ${urgencyText} (${formattedEndDate}).
-
-Contract Period: ${formattedStartDate} - ${formattedEndDate}
-Monthly Rent: ${formattedPrice}
-
-Please contact us to renew your contract or arrange move-out procedures.
-
-Contract ID: ${contract.ContractID}
-
-Thank you.`;
-    }
-
-    return message;
+  // Legacy method - now using centralized SmsTemplateService
+  // This method is kept for backward compatibility but delegates to the new service
+  static async createContractReminderMessage(contract, daysRemaining, language = 'en') {
+    return await SmsTemplateService.createContractReminderMessage(contract, language);
   }
 
   // Create consolidated contract reminder message for multiple contracts
-  static createConsolidatedContractReminderMessage(customerGroup, language = 'en') {
-    // Use language-specific customer name
-    let customerName;
-    if (language === 'am') {
-      customerName = customerGroup.customer_name_am || customerGroup.customer_name || 'ውድ ደንበኛ';
-    } else {
-      customerName = customerGroup.customer_name || 'Valued Customer';
-    }
-
-    // Format total rent in Ethiopian Birr
-    const formattedTotalRent = DateUtils.formatCurrency(customerGroup.totalRent, language);
-
-    // Get urgency text based on earliest deadline
-    const urgencyText = DateUtils.getUrgencyText(customerGroup.earliestDaysToDeadline, language);
-
-    // Convert earliest deadline to Ethiopian calendar
-    const ethDate = DateUtils.toEthiopianDate(customerGroup.earliestDeadline);
-    const formattedDate = DateUtils.formatEthiopianDate(ethDate, language);
-
-    let message;
-    if (language === 'am') {
-      // Amharic message for multiple contracts
-      let contractDetails = '';
-      customerGroup.contracts.forEach((contract, index) => {
-        const contractRent = DateUtils.formatCurrency(contract.RoomPrice || 0, language);
-        const contractEthDate = DateUtils.toEthiopianDate(contract.EndDate);
-        const contractFormattedDate = DateUtils.formatEthiopianDate(contractEthDate, language);
-        const daysRemainingText = DateUtils.getDaysRemainingText(contract.days_to_deadline, language);
-
-        contractDetails += `${index + 1}. ክፍል ${contract.RoomID}: ${contractRent} - ${daysRemainingText} (${contractFormattedDate})\n`;
-      });
-
-      message = `ውድ ${customerName}፣
-
-እርስዎ ${customerGroup.contractCount} የኪራይ ውል(ዎች) አሉዎት፡
-
-${contractDetails}
-ጠቅላላ ወርሃዊ ኪራይ: ${formattedTotalRent}
-
-ውሉን ለማደስ ወይም የመውጫ ሂደቶችን ለማዘጋጀት እባክዎ ያግኙን።
-
-እናመሰግናለን።`;
-    } else {
-      // English message for multiple contracts
-      let contractDetails = '';
-      customerGroup.contracts.forEach((contract, index) => {
-        const contractRent = DateUtils.formatCurrency(contract.RoomPrice || 0, language);
-        const contractEthDate = DateUtils.toEthiopianDate(contract.EndDate);
-        const contractFormattedDate = DateUtils.formatEthiopianDate(contractEthDate, language);
-        const daysRemainingText = DateUtils.getDaysRemainingText(contract.days_to_deadline, language);
-
-        contractDetails += `${index + 1}. Room ${contract.RoomID}: ${contractRent} - ${daysRemainingText} (${contractFormattedDate})\n`;
-      });
-
-      message = `Dear ${customerName},
-
-You have ${customerGroup.contractCount} rental contract(s) expiring:
-
-${contractDetails}
-Total Monthly Rent: ${formattedTotalRent}
-
-Please contact us to renew your contracts or arrange move-out procedures.
-
-Thank you.`;
-    }
-
-    return message;
+  static async createConsolidatedContractReminderMessage(customerGroup, language = 'en') {
+    return await SmsTemplateService.createConsolidatedContractReminderMessage(customerGroup, language);
   }
 
   // Manual trigger for testing

@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const { PaymentDisplay, Settings, SmsSchedulerJob, DefaultLanguageSetting } = require('../models');
 const DateUtils = require('../utils/dateUtils');
+const SmsTemplateService = require('../services/smsTemplateService');
 
 class PaymentDisplayDeadlineScheduler {
   constructor() {
@@ -54,6 +55,7 @@ class PaymentDisplayDeadlineScheduler {
       console.log(`Checking for payment displays due within ${daysToDeadline} days`);
 
       // Get payment displays approaching deadline grouped by customer
+      // All spaces for a customer are consolidated into ONE message
       const customerGroups = await PaymentDisplay.findApproachingDeadlineGroupedByCustomer(daysToDeadline);
       console.log(`Found ${customerGroups.length} customers with approaching payment display deadlines`);
 
@@ -121,8 +123,8 @@ class PaymentDisplayDeadlineScheduler {
       // Get default language
       const defaultLanguageCode = await DefaultLanguageSetting.getDefaultLanguageCode();
 
-      // Create consolidated SMS message
-      const message = PaymentDisplayDeadlineScheduler.createConsolidatedPaymentDisplayReminderMessage(customerGroup, defaultLanguageCode);
+      // Create consolidated SMS message using the centralized template service
+      const message = await SmsTemplateService.createConsolidatedPaymentReminderMessage(customerGroup, defaultLanguageCode);
 
       // Calculate execution date (send reminder immediately for now)
       const executeDate = new Date();
@@ -144,65 +146,9 @@ class PaymentDisplayDeadlineScheduler {
   }
 
   // Create consolidated payment display reminder message for multiple payments
-  static createConsolidatedPaymentDisplayReminderMessage(customerGroup, language = 'en') {
-    // Use language-specific customer name
-    let customerName;
-    if (language === 'am') {
-      customerName = customerGroup.customer_name_am || customerGroup.customer_name || 'ውድ ደንበኛ';
-    } else {
-      customerName = customerGroup.customer_name || 'Valued Customer';
-    }
-
-    // Format total amount in Ethiopian Birr
-    const formattedTotalAmount = DateUtils.formatCurrency(customerGroup.totalAmount, language);
-
-    let message;
-    if (language === 'am') {
-      // Amharic message for multiple payment displays
-      let paymentDetails = '';
-      customerGroup.payments.forEach((payment, index) => {
-        const paymentAmount = DateUtils.formatCurrency(payment.GroundTotal || payment.line_total || 0, language);
-        const paymentEthDate = DateUtils.toEthiopianDate(payment.end_date);
-        const paymentFormattedDate = DateUtils.formatEthiopianDate(paymentEthDate, language);
-        const daysRemainingText = DateUtils.getDaysRemainingText(payment.days_to_deadline, language);
-
-        paymentDetails += `${index + 1}. ክፍል ${payment.room}: ${paymentAmount} - ${daysRemainingText} (${paymentFormattedDate})\n`;
-      });
-
-      message = `ውድ ${customerName}፣
-
-እርስዎ ${customerGroup.paymentCount} የክፍያ ግዴታዎች አሉዎት ፡
-
-${paymentDetails}
-ጠቅላላ መጠን: ${formattedTotalAmount}
-
-
-እናመሰግናለን።`;
-    } else {
-      // English message for multiple payment displays
-      let paymentDetails = '';
-      customerGroup.payments.forEach((payment, index) => {
-        const paymentAmount = DateUtils.formatCurrency(payment.GroundTotal || payment.line_total || 0, language);
-        const paymentEthDate = DateUtils.toEthiopianDate(payment.end_date);
-        const paymentFormattedDate = DateUtils.formatEthiopianDate(paymentEthDate, language);
-        const daysRemainingText = DateUtils.getDaysRemainingText(payment.days_to_deadline, language);
-
-        paymentDetails += `${index + 1}. Room ${payment.room}: ${paymentAmount} - ${daysRemainingText} (${paymentFormattedDate})\n`;
-      });
-
-      message = `Dear ${customerName},
-
-You have ${customerGroup.paymentCount} payment(s) due:
-
-${paymentDetails}
-Total Amount: ${formattedTotalAmount}
-
-Please make your payments to avoid any inconvenience.
-
-Thank you.`;
-    }
-
-    return message;
+  // Delegates to the centralized SMS template service
+  static async createConsolidatedPaymentDisplayReminderMessage(customerGroup, language = 'en') {
+    return await SmsTemplateService.createConsolidatedPaymentReminderMessage(customerGroup, language);
   }
 
   // Manual trigger for testing

@@ -13,6 +13,7 @@ const Contract = require('./Contract');
 const PaymentDisplay = require('./PaymentDisplay');
 const ContractDisplay = require('./ContractDisplay');
 const Customer = require('./Customer');
+const PenalityPeriod = require('./PenalityPeriod');
 
 module.exports = {
   // SMS Gateway Models
@@ -29,5 +30,6 @@ module.exports = {
   Contract,
   PaymentDisplay,
   ContractDisplay,
-  Customer
+  Customer,
+  PenalityPeriod
 };

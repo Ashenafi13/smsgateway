@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const { ContractDisplay, Settings, SmsSchedulerJob, DefaultLanguageSetting } = require('../models');
 const DateUtils = require('../utils/dateUtils');
+const SmsTemplateService = require('../services/smsTemplateService');
 
 class ContractDisplayDeadlineScheduler {
   constructor() {
@@ -54,6 +55,7 @@ class ContractDisplayDeadlineScheduler {
       console.log(`Checking for contract displays expiring within ${daysToDeadline} days`);
 
       // Get contract displays approaching deadline grouped by customer
+      // All spaces for a customer are consolidated into ONE message
       const customerGroups = await ContractDisplay.findApproachingDeadlineGroupedByCustomer(daysToDeadline);
       console.log(`Found ${customerGroups.length} customers with approaching contract display deadlines`);
 
@@ -121,8 +123,8 @@ class ContractDisplayDeadlineScheduler {
       // Get default language
       const defaultLanguageCode = await DefaultLanguageSetting.getDefaultLanguageCode();
 
-      // Create consolidated SMS message
-      const message = ContractDisplayDeadlineScheduler.createConsolidatedContractDisplayReminderMessage(customerGroup, defaultLanguageCode);
+      // Create consolidated SMS message using the centralized template service
+      const message = await SmsTemplateService.createConsolidatedContractReminderMessage(customerGroup, defaultLanguageCode);
 
       // Calculate execution date (send reminder immediately for now)
       const executeDate = new Date();
@@ -144,66 +146,9 @@ class ContractDisplayDeadlineScheduler {
   }
 
   // Create consolidated contract display reminder message for multiple contracts
-  static createConsolidatedContractDisplayReminderMessage(customerGroup, language = 'en') {
-    // Use language-specific customer name
-    let customerName;
-    if (language === 'am') {
-      customerName = customerGroup.customer_name_am || customerGroup.customer_name || 'ውድ ደንበኛ';
-    } else {
-      customerName = customerGroup.customer_name || 'Valued Customer';
-    }
-
-    // Format total rent in Ethiopian Birr
-    const formattedTotalRent = DateUtils.formatCurrency(customerGroup.totalRent, language);
-
-    let message;
-    if (language === 'am') {
-      // Amharic message for multiple contract displays
-      let contractDetails = '';
-      customerGroup.contracts.forEach((contract, index) => {
-        const contractRent = DateUtils.formatCurrency(contract.RoomPrice || 0, language);
-        const contractEthDate = DateUtils.toEthiopianDate(contract.EndDate);
-        const contractFormattedDate = DateUtils.formatEthiopianDate(contractEthDate, language);
-        const daysRemainingText = DateUtils.getDaysRemainingText(contract.days_to_deadline, language);
-
-        contractDetails += `${index + 1}. ክፍል ${contract.RoomID}: ${contractRent} - ${daysRemainingText} (${contractFormattedDate})\n`;
-      });
-
-      message = `ውድ ${customerName}፣
-
-እርስዎ ${customerGroup.contractCount} የኪራይ ውል(ዎች) አሉዎት ፡
-
-${contractDetails}
-ጠቅላላ ወርሃዊ ኪራይ: ${formattedTotalRent}
-
-ውሉን ለማደስ ወይም የመውጫ ሂደቶችን ለማዘጋጀት እባክዎ ያግኙን።
-
-እናመሰግናለን።`;
-    } else {
-      // English message for multiple contract displays
-      let contractDetails = '';
-      customerGroup.contracts.forEach((contract, index) => {
-        const contractRent = DateUtils.formatCurrency(contract.RoomPrice || 0, language);
-        const contractEthDate = DateUtils.toEthiopianDate(contract.EndDate);
-        const contractFormattedDate = DateUtils.formatEthiopianDate(contractEthDate, language);
-        const daysRemainingText = DateUtils.getDaysRemainingText(contract.days_to_deadline, language);
-
-        contractDetails += `${index + 1}. Room ${contract.RoomID}: ${contractRent} - ${daysRemainingText} (${contractFormattedDate})\n`;
-      });
-
-      message = `Dear ${customerName},
-
-You have ${customerGroup.contractCount} rental contract(s) expiring (Building Display Space):
-
-${contractDetails}
-Total Monthly Rent: ${formattedTotalRent}
-
-Please contact us to renew your contracts or arrange move-out procedures.
-
-Thank you.`;
-    }
-
-    return message;
+  // Delegates to the centralized SMS template service
+  static async createConsolidatedContractDisplayReminderMessage(customerGroup, language = 'en') {
+    return await SmsTemplateService.createConsolidatedContractReminderMessage(customerGroup, language);
   }
 
   // Manual trigger for testing
