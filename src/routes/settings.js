@@ -50,4 +50,18 @@ router.get('/sms', SettingsController.getSmsSettings);
  */
 router.put('/sms', settingsValidation.update, SettingsController.updateSmsSettings);
 
+/**
+ * @route   GET /api/settings/scheduler/status
+ * @desc    Get scheduler status
+ * @access  Private
+ */
+router.get('/scheduler/status', SettingsController.getSchedulerStatus);
+
+/**
+ * @route   PUT /api/settings/scheduler/status
+ * @desc    Update scheduler status (0 = inactive, 1 = active)
+ * @access  Private
+ */
+router.put('/scheduler/status', settingsValidation.update, SettingsController.updateSchedulerStatus);
+
 module.exports = router;

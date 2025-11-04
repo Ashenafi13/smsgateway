@@ -3,6 +3,7 @@ const ContractDeadlineScheduler = require('./contractDeadlineScheduler');
 const PaymentDisplayDeadlineScheduler = require('./paymentDisplayDeadlineScheduler');
 const ContractDisplayDeadlineScheduler = require('./contractDisplayDeadlineScheduler');
 const SmsExecutionScheduler = require('./smsExecutionScheduler');
+const Settings = require('../models/Settings');
 
 // Scheduler instances
 let paymentScheduler = null;
@@ -12,31 +13,52 @@ let contractDisplayScheduler = null;
 let smsExecutionScheduler = null;
 
 // Initialize all schedulers
-function initializeSchedulers() {
+async function initializeSchedulers() {
   try {
     console.log('Initializing schedulers...');
 
-    // Initialize Payment Deadline Scheduler
-    paymentScheduler = new PaymentDeadlineScheduler();
-    paymentScheduler.start();
+    // Get scheduler status from database
+    let schedulerStatus = 1; // Default to active
+    try {
+      const settings = await Settings.get();
+      schedulerStatus = settings.schedulerStatus !== undefined ? settings.schedulerStatus : 1;
+      console.log(`Scheduler status from database: ${schedulerStatus === 1 ? 'ACTIVE' : 'INACTIVE'}`);
+    } catch (error) {
+      console.warn('Could not fetch scheduler status from database, defaulting to active:', error.message);
+    }
 
-    // Initialize Contract Deadline Scheduler
-    contractScheduler = new ContractDeadlineScheduler();
-    contractScheduler.start();
+    // Only start schedulers if status is 1 (active)
+    if (schedulerStatus === 1) {
+      // Initialize Payment Deadline Scheduler
+      paymentScheduler = new PaymentDeadlineScheduler();
+      paymentScheduler.start();
 
-    // Initialize Payment Display Deadline Scheduler
-    paymentDisplayScheduler = new PaymentDisplayDeadlineScheduler();
-    paymentDisplayScheduler.start();
+      // Initialize Contract Deadline Scheduler
+      contractScheduler = new ContractDeadlineScheduler();
+      contractScheduler.start();
 
-    // Initialize Contract Display Deadline Scheduler
-    contractDisplayScheduler = new ContractDisplayDeadlineScheduler();
-    contractDisplayScheduler.start();
+      // Initialize Payment Display Deadline Scheduler
+      paymentDisplayScheduler = new PaymentDisplayDeadlineScheduler();
+      paymentDisplayScheduler.start();
 
-    // Initialize SMS Execution Scheduler
-    smsExecutionScheduler = new SmsExecutionScheduler();
-    smsExecutionScheduler.start();
+      // Initialize Contract Display Deadline Scheduler
+      contractDisplayScheduler = new ContractDisplayDeadlineScheduler();
+      contractDisplayScheduler.start();
 
-    console.log('All schedulers initialized successfully');
+      // Initialize SMS Execution Scheduler
+      smsExecutionScheduler = new SmsExecutionScheduler();
+      smsExecutionScheduler.start();
+
+      console.log('All schedulers initialized successfully');
+    } else {
+      console.log('Schedulers are disabled (status = 0). Initializing but not starting...');
+      // Initialize but don't start
+      paymentScheduler = new PaymentDeadlineScheduler();
+      contractScheduler = new ContractDeadlineScheduler();
+      paymentDisplayScheduler = new PaymentDisplayDeadlineScheduler();
+      contractDisplayScheduler = new ContractDisplayDeadlineScheduler();
+      smsExecutionScheduler = new SmsExecutionScheduler();
+    }
   } catch (error) {
     console.error('Error initializing schedulers:', error);
     throw error;
@@ -154,6 +176,62 @@ async function getExecutionStatistics() {
   return await smsExecutionScheduler.getExecutionStatistics();
 }
 
+// Start all schedulers
+function startAllSchedulers() {
+  try {
+    console.log('Starting all schedulers...');
+
+    if (paymentScheduler && !paymentScheduler.cronJob) {
+      paymentScheduler.start();
+    }
+    if (contractScheduler && !contractScheduler.cronJob) {
+      contractScheduler.start();
+    }
+    if (paymentDisplayScheduler && !paymentDisplayScheduler.cronJob) {
+      paymentDisplayScheduler.start();
+    }
+    if (contractDisplayScheduler && !contractDisplayScheduler.cronJob) {
+      contractDisplayScheduler.start();
+    }
+    if (smsExecutionScheduler && !smsExecutionScheduler.cronJob) {
+      smsExecutionScheduler.start();
+    }
+
+    console.log('All schedulers started successfully');
+  } catch (error) {
+    console.error('Error starting schedulers:', error);
+    throw error;
+  }
+}
+
+// Stop all schedulers
+function stopAllSchedulers() {
+  try {
+    console.log('Stopping all schedulers...');
+
+    if (paymentScheduler) {
+      paymentScheduler.stop();
+    }
+    if (contractScheduler) {
+      contractScheduler.stop();
+    }
+    if (paymentDisplayScheduler) {
+      paymentDisplayScheduler.stop();
+    }
+    if (contractDisplayScheduler) {
+      contractDisplayScheduler.stop();
+    }
+    if (smsExecutionScheduler) {
+      smsExecutionScheduler.stop();
+    }
+
+    console.log('All schedulers stopped successfully');
+  } catch (error) {
+    console.error('Error stopping schedulers:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   initializeSchedulers,
   stopSchedulers,
@@ -165,5 +243,7 @@ module.exports = {
   triggerContractDisplayDeadlineCheck,
   triggerSmsExecution,
   executeSmsJobsByCriteria,
-  getExecutionStatistics
+  getExecutionStatistics,
+  startAllSchedulers,
+  stopAllSchedulers
 };

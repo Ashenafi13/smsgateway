@@ -67,7 +67,7 @@ async function startServer() {
     // Initialize schedulers if enabled
     if (process.env.SCHEDULER_ENABLED === 'true') {
       console.log('Initializing schedulers...');
-      initializeSchedulers();
+      await initializeSchedulers();
       console.log('Schedulers initialized successfully');
     }
 

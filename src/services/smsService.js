@@ -231,6 +231,20 @@ class SmsService {
     }
   }
 
+  // Scheduler Status
+  static async getSchedulerStatus() {
+    try {
+      const settings = await Settings.get();
+      return {
+        schedulerStatus: settings.schedulerStatus,
+        isActive: settings.schedulerStatus === 1,
+        statusLabel: settings.schedulerStatus === 1 ? 'ACTIVE' : 'INACTIVE'
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch scheduler status: ${error.message}`);
+    }
+  }
+
   // SMS Sending using GeezSMS API
   static async sendSms(phoneNumber, message) {
     try {

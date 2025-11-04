@@ -37,6 +37,7 @@ async function migrateSmsSettings() {
           smsApiToken NVARCHAR(255) NULL,
           smsShortcodeId NVARCHAR(50) NULL,
           smsCallbackUrl NVARCHAR(255) NULL,
+          schedulerStatus INT NOT NULL DEFAULT 1,
           createdAt DATETIME2 DEFAULT GETDATE(),
           updatedAt DATETIME2 DEFAULT GETDATE()
         )
@@ -45,8 +46,8 @@ async function migrateSmsSettings() {
 
       // Insert default settings
       await request.query(`
-        INSERT INTO tbls_settings_sms (numberOfDaysToDeadline, smsApiToken, smsShortcodeId, smsCallbackUrl)
-        VALUES (7, NULL, NULL, NULL)
+        INSERT INTO tbls_settings_sms (numberOfDaysToDeadline, smsApiToken, smsShortcodeId, smsCallbackUrl, schedulerStatus)
+        VALUES (7, NULL, NULL, NULL, 1)
       `);
       console.log('✓ Default settings inserted');
 
@@ -59,7 +60,7 @@ async function migrateSmsSettings() {
         SELECT COLUMN_NAME
         FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_NAME = 'tbls_settings_sms'
-        AND COLUMN_NAME IN ('smsApiToken', 'smsShortcodeId', 'smsCallbackUrl')
+        AND COLUMN_NAME IN ('smsApiToken', 'smsShortcodeId', 'smsCallbackUrl', 'schedulerStatus')
       `);
 
       const existingColumns = columnCheck.recordset.map(row => row.COLUMN_NAME);
@@ -69,7 +70,8 @@ async function migrateSmsSettings() {
       const columnsToAdd = [
         { name: 'smsApiToken', type: 'NVARCHAR(255)', nullable: true },
         { name: 'smsShortcodeId', type: 'NVARCHAR(50)', nullable: true },
-        { name: 'smsCallbackUrl', type: 'NVARCHAR(255)', nullable: true }
+        { name: 'smsCallbackUrl', type: 'NVARCHAR(255)', nullable: true },
+        { name: 'schedulerStatus', type: 'INT', nullable: false, default: 1 }
       ];
 
       let addedColumns = 0;
@@ -78,10 +80,14 @@ async function migrateSmsSettings() {
         if (!existingColumns.includes(column.name)) {
           console.log(`4.${addedColumns + 1}. Adding column ${column.name}...`);
 
-          await request.query(`
-            ALTER TABLE tbls_settings_sms
-            ADD ${column.name} ${column.type} ${column.nullable ? 'NULL' : 'NOT NULL'}
-          `);
+          let alterQuery = `ALTER TABLE tbls_settings_sms ADD ${column.name} ${column.type} ${column.nullable ? 'NULL' : 'NOT NULL'}`;
+
+          // Add default value if specified
+          if (column.default !== undefined) {
+            alterQuery += ` DEFAULT ${column.default}`;
+          }
+
+          await request.query(alterQuery);
 
           console.log(`✓ Column ${column.name} added successfully`);
           addedColumns++;

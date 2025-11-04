@@ -69,7 +69,9 @@ router.get('/', (req, res) => {
         'GET /api/settings': 'Get all settings',
         'PUT /api/settings': 'Update settings',
         'GET /api/settings/days-to-deadline': 'Get days to deadline setting',
-        'PUT /api/settings/days-to-deadline': 'Update days to deadline setting'
+        'PUT /api/settings/days-to-deadline': 'Update days to deadline setting',
+        'GET /api/settings/scheduler/status': 'Get scheduler status',
+        'PUT /api/settings/scheduler/status': 'Update scheduler status (0 = inactive, 1 = active)'
       },
       scheduler: {
         'GET /api/scheduler/status': 'Get scheduler status',

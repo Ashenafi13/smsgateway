@@ -7,6 +7,7 @@ class Settings {
     this.smsApiToken = data.smsApiToken;
     this.smsShortcodeId = data.smsShortcodeId;
     this.smsCallbackUrl = data.smsCallbackUrl;
+    this.schedulerStatus = data.schedulerStatus !== undefined ? data.schedulerStatus : 1; // Default to active (1)
   }
 
   // Get settings
@@ -33,18 +34,19 @@ class Settings {
     try {
       const pool = getSMSPool();
       const request = pool.request();
-      
+
       const result = await request
         .input('numberOfDaysToDeadline', sql.Int, 7) // Default 7 days
         .input('smsApiToken', sql.NVarChar(255), null)
         .input('smsShortcodeId', sql.NVarChar(50), null)
         .input('smsCallbackUrl', sql.NVarChar(255), null)
+        .input('schedulerStatus', sql.Int, 1) // Default to active (1)
         .query(`
-          INSERT INTO tbls_settings_sms (numberOfDaysToDeadline, smsApiToken, smsShortcodeId, smsCallbackUrl)
+          INSERT INTO tbls_settings_sms (numberOfDaysToDeadline, smsApiToken, smsShortcodeId, smsCallbackUrl, schedulerStatus)
           OUTPUT INSERTED.*
-          VALUES (@numberOfDaysToDeadline, @smsApiToken, @smsShortcodeId, @smsCallbackUrl)
+          VALUES (@numberOfDaysToDeadline, @smsApiToken, @smsShortcodeId, @smsCallbackUrl, @schedulerStatus)
         `);
-      
+
       return new Settings(result.recordset[0]);
     } catch (error) {
       throw new Error(`Error creating default settings: ${error.message}`);
@@ -68,16 +70,18 @@ class Settings {
           .input('smsApiToken', sql.NVarChar(255), settingsData.smsApiToken !== undefined ? settingsData.smsApiToken : existingSettings.smsApiToken)
           .input('smsShortcodeId', sql.NVarChar(50), settingsData.smsShortcodeId !== undefined ? settingsData.smsShortcodeId : existingSettings.smsShortcodeId)
           .input('smsCallbackUrl', sql.NVarChar(255), settingsData.smsCallbackUrl !== undefined ? settingsData.smsCallbackUrl : existingSettings.smsCallbackUrl)
+          .input('schedulerStatus', sql.Int, settingsData.schedulerStatus !== undefined ? settingsData.schedulerStatus : existingSettings.schedulerStatus)
           .query(`
             UPDATE tbls_settings_sms
             SET numberOfDaysToDeadline = @numberOfDaysToDeadline,
                 smsApiToken = @smsApiToken,
                 smsShortcodeId = @smsShortcodeId,
-                smsCallbackUrl = @smsCallbackUrl
+                smsCallbackUrl = @smsCallbackUrl,
+                schedulerStatus = @schedulerStatus
             OUTPUT INSERTED.*
             WHERE id = @id
           `);
-        
+
         return new Settings(result.recordset[0]);
       } else {
         // Create new settings if none exist
@@ -86,12 +90,13 @@ class Settings {
           .input('smsApiToken', sql.NVarChar(255), settingsData.smsApiToken || null)
           .input('smsShortcodeId', sql.NVarChar(50), settingsData.smsShortcodeId || null)
           .input('smsCallbackUrl', sql.NVarChar(255), settingsData.smsCallbackUrl || null)
+          .input('schedulerStatus', sql.Int, settingsData.schedulerStatus !== undefined ? settingsData.schedulerStatus : 1)
           .query(`
-            INSERT INTO tbls_settings_sms (numberOfDaysToDeadline, smsApiToken, smsShortcodeId, smsCallbackUrl)
+            INSERT INTO tbls_settings_sms (numberOfDaysToDeadline, smsApiToken, smsShortcodeId, smsCallbackUrl, schedulerStatus)
             OUTPUT INSERTED.*
-            VALUES (@numberOfDaysToDeadline, @smsApiToken, @smsShortcodeId, @smsCallbackUrl)
+            VALUES (@numberOfDaysToDeadline, @smsApiToken, @smsShortcodeId, @smsCallbackUrl, @schedulerStatus)
           `);
-        
+
         return new Settings(result.recordset[0]);
       }
     } catch (error) {
