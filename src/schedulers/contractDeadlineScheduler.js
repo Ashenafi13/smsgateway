@@ -10,24 +10,39 @@ class ContractDeadlineScheduler {
   }
 
   // Start the contract deadline scheduler
-  start() {
+  async start() {
     if (this.cronJob) {
       console.log('Contract deadline scheduler is already running');
       return;
     }
 
-    // Run every day at 9:00 AM (configurable via environment)
-    const cronExpression = process.env.DEADLINE_CHECK_CRON || '0 9 * * *';
-    
-    this.cronJob = cron.schedule(cronExpression, async () => {
-      await this.checkContractDeadlines();
-    }, {
-      scheduled: false,
-      timezone: 'Etc/UTC'
-    });
+    try {
+      // Try to get cron expression from database first
+      let cronExpression = process.env.DEADLINE_CHECK_CRON || '0 9 * * *';
 
-    this.cronJob.start();
-    console.log(`Contract deadline scheduler started with cron: ${cronExpression}`);
+      try {
+        const schedulerSetting = await Settings.getSchedulerSetting('contract_deadline_check');
+        if (schedulerSetting && schedulerSetting.cron_expression) {
+          cronExpression = schedulerSetting.cron_expression;
+          console.log(`Loaded contract deadline scheduler cron from database: ${cronExpression}`);
+        }
+      } catch (error) {
+        console.warn('Could not load scheduler settings from database, using environment variable:', error.message);
+      }
+
+      this.cronJob = cron.schedule(cronExpression, async () => {
+        await this.checkContractDeadlines();
+      }, {
+        scheduled: false,
+        timezone: 'Etc/UTC'
+      });
+
+      this.cronJob.start();
+      console.log(`Contract deadline scheduler started with cron: ${cronExpression}`);
+    } catch (error) {
+      console.error('Error starting contract deadline scheduler:', error);
+      throw error;
+    }
   }
 
   // Stop the scheduler
@@ -76,7 +91,7 @@ class ContractDeadlineScheduler {
       for (const customerGroup of customerGroups) {
         try {
           console.log(`Processing consolidated reminder for customer ${customerGroup.customer_name} (${customerGroup.contractCount} contracts)`);
-          await this.createConsolidatedContractReminderJob(customerGroup);
+          await this.createConsolidatedContractReminderJob(customerGroup, daysToDeadline);
           jobsCreated++;
         } catch (error) {
           console.error(`Error creating consolidated SMS job for customer ${customerGroup.customer_name}:`, error);
@@ -93,7 +108,7 @@ class ContractDeadlineScheduler {
   }
 
   // Create consolidated SMS reminder job for multiple contracts from same customer
-  async createConsolidatedContractReminderJob(customerGroup) {
+  async createConsolidatedContractReminderJob(customerGroup, daysToDeadline) {
     try {
       // Check if customer has a valid phone number
       if (!customerGroup.customer_phone) {
@@ -111,12 +126,35 @@ class ContractDeadlineScheduler {
         return;
       }
 
-      // Check if there's already a pending SMS job for this customer (by phone and job type)
-      const existingJobs = await SmsSchedulerJob.findPendingByPhoneAndType(customerGroup.customer_phone, 'contract_reminder');
-      console.log(`Found ${existingJobs.length} existing pending SMS jobs`);
+      // Determine SMS type based on days to deadline
+      // BEFORE deadline: days_to_deadline == daysToDeadline (exactly at threshold)
+      // AFTER deadline: days_to_deadline < 0 (past deadline)
+      let smsType;
 
-      if (existingJobs.length > 0) {
-        console.log(`SMS job already exists for customer ${customerGroup.customer_name}, skipping`);
+      if (customerGroup.earliestDaysToDeadline === daysToDeadline) {
+        // Exactly at the threshold - send BEFORE deadline SMS
+        smsType = 'before_deadline';
+        console.log(`SMS Type: ${smsType} (days remaining = ${daysToDeadline})`);
+      } else if (customerGroup.earliestDaysToDeadline < 0) {
+        // Past deadline - send AFTER deadline SMS
+        smsType = 'after_deadline';
+        console.log(`SMS Type: ${smsType} (days overdue = ${Math.abs(customerGroup.earliestDaysToDeadline)})`);
+      } else {
+        // Within the range but not at exact threshold - skip for now
+        console.log(`Days remaining (${customerGroup.earliestDaysToDeadline}) is not at threshold (${daysToDeadline}) or overdue, skipping`);
+        return;
+      }
+
+      // Check if SMS has already been sent for this customer with this type
+      const alreadySent = await SmsSchedulerJob.hasSentSmsForCustomer(
+        customerGroup.customer_id,
+        customerGroup.customer_type,
+        'contract_reminder',
+        smsType
+      );
+
+      if (alreadySent) {
+        console.log(`SMS (${smsType}) already sent for customer ${customerGroup.customer_name}, skipping`);
         return;
       }
 
@@ -135,10 +173,13 @@ class ContractDeadlineScheduler {
         message: message,
         execute_date: executeDate,
         status: 'pending',
-        job_type: 'contract_reminder'
+        job_type: 'contract_reminder',
+        sms_type: smsType,
+        customer_id: customerGroup.customer_id,
+        customer_type: customerGroup.customer_type
       });
 
-      console.log(`Created SMS job ${smsJob.id} for customer ${customerGroup.customer_name} (Customer: ${customerGroup.customer_name})`);
+      console.log(`Created SMS job ${smsJob.id} for customer ${customerGroup.customer_name} (Type: ${smsType})`);
     } catch (error) {
       console.error(`Error creating consolidated SMS job for customer ${customerGroup.customer_name}:`, error);
       throw error;

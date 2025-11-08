@@ -31,23 +31,23 @@ async function initializeSchedulers() {
     if (schedulerStatus === 1) {
       // Initialize Payment Deadline Scheduler
       paymentScheduler = new PaymentDeadlineScheduler();
-      paymentScheduler.start();
+      await paymentScheduler.start();
 
       // Initialize Contract Deadline Scheduler
       contractScheduler = new ContractDeadlineScheduler();
-      contractScheduler.start();
+      await contractScheduler.start();
 
       // Initialize Payment Display Deadline Scheduler
       paymentDisplayScheduler = new PaymentDisplayDeadlineScheduler();
-      paymentDisplayScheduler.start();
+      await paymentDisplayScheduler.start();
 
       // Initialize Contract Display Deadline Scheduler
       contractDisplayScheduler = new ContractDisplayDeadlineScheduler();
-      contractDisplayScheduler.start();
+      await contractDisplayScheduler.start();
 
       // Initialize SMS Execution Scheduler
       smsExecutionScheduler = new SmsExecutionScheduler();
-      smsExecutionScheduler.start();
+      await smsExecutionScheduler.start();
 
       console.log('All schedulers initialized successfully');
     } else {

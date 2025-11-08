@@ -10,6 +10,9 @@ class SmsSchedulerJob {
     this.jobtype = data.jobtype;
     this.createdAt = data.createdAt;
     this.updatedAt = data.updatedAt;
+    this.sms_type = data.sms_type; // 'before_deadline' or 'after_deadline'
+    this.customer_id = data.customer_id;
+    this.customer_type = data.customer_type;
   }
 
   // Create a new SMS job
@@ -24,6 +27,9 @@ class SmsSchedulerJob {
       const executeDate = jobData.executeDate || jobData.execute_date;
       const jobStatus = jobData.jobStatus || jobData.status || 'pending';
       const jobtype = jobData.jobtype || jobData.job_type;
+      const smsType = jobData.sms_type || jobData.smsType; // 'before_deadline' or 'after_deadline'
+      const customerId = jobData.customer_id || jobData.customerId;
+      const customerType = jobData.customer_type || jobData.customerType;
 
       const result = await request
         .input('phoneNumber', sql.NVarChar(20), phoneNumber)
@@ -31,10 +37,13 @@ class SmsSchedulerJob {
         .input('executeDate', sql.DateTime, executeDate)
         .input('jobStatus', sql.NVarChar(20), jobStatus)
         .input('jobtype', sql.NVarChar(50), jobtype)
+        .input('smsType', sql.NVarChar(50), smsType || null)
+        .input('customerId', sql.Int, customerId || null)
+        .input('customerType', sql.NVarChar(10), customerType || null)
         .query(`
-          INSERT INTO tbls_sms_scheduler_jobs (phoneNumber, message, executeDate, jobStatus, jobtype, createdAt, updatedAt)
+          INSERT INTO tbls_sms_scheduler_jobs (phoneNumber, message, executeDate, jobStatus, jobtype, sms_type, customer_id, customer_type, createdAt, updatedAt)
           OUTPUT INSERTED.*
-          VALUES (@phoneNumber, @message, @executeDate, @jobStatus, @jobtype, GETDATE(), GETDATE())
+          VALUES (@phoneNumber, @message, @executeDate, @jobStatus, @jobtype, @smsType, @customerId, @customerType, GETDATE(), GETDATE())
         `);
 
       return new SmsSchedulerJob(result.recordset[0]);
@@ -202,6 +211,43 @@ class SmsSchedulerJob {
       return result.recordset.map(job => new SmsSchedulerJob(job));
     } catch (error) {
       throw new Error(`Error fetching pending jobs for phone and type: ${error.message}`);
+    }
+  }
+
+  // Find SMS jobs by customer and SMS type (before/after deadline)
+  static async findByCustomerAndSmsType(customerId, customerType, jobType, smsType) {
+    try {
+      const pool = getSMSPool();
+      const request = pool.request();
+
+      const result = await request
+        .input('customerId', sql.Int, customerId)
+        .input('customerType', sql.NVarChar(10), customerType)
+        .input('jobType', sql.NVarChar(50), jobType)
+        .input('smsType', sql.NVarChar(50), smsType)
+        .query(`
+          SELECT * FROM tbls_sms_scheduler_jobs
+          WHERE customer_id = @customerId
+          AND customer_type = @customerType
+          AND jobtype = @jobType
+          AND sms_type = @smsType
+          AND (jobStatus = 'pending' OR jobStatus = 'completed')
+          ORDER BY createdAt DESC
+        `);
+
+      return result.recordset.map(job => new SmsSchedulerJob(job));
+    } catch (error) {
+      throw new Error(`Error fetching jobs by customer and SMS type: ${error.message}`);
+    }
+  }
+
+  // Check if SMS has been sent for a customer (before or after deadline)
+  static async hasSentSmsForCustomer(customerId, customerType, jobType, smsType) {
+    try {
+      const jobs = await this.findByCustomerAndSmsType(customerId, customerType, jobType, smsType);
+      return jobs.length > 0;
+    } catch (error) {
+      throw new Error(`Error checking SMS sent status: ${error.message}`);
     }
   }
 }

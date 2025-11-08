@@ -9,24 +9,40 @@ class SmsExecutionScheduler {
   }
 
   // Start the SMS execution scheduler
-  start() {
+  async start() {
     if (this.cronJob) {
       console.log('SMS execution scheduler is already running');
       return;
     }
 
-    // Run every 5 minutes (configurable via environment)
-    const cronExpression = process.env.SMS_EXECUTION_CRON || '0 */5 * * * *';
-    
-    this.cronJob = cron.schedule(cronExpression, async () => {
-      await this.executePendingSmsJobs();
-    }, {
-      scheduled: false,
-      timezone: 'Etc/UTC'
-    });
+    try {
+      // Try to get cron expression from database first
+      let cronExpression = process.env.SMS_EXECUTION_CRON || '0 */5 * * * *';
 
-    this.cronJob.start();
-    console.log(`SMS execution scheduler started with cron: ${cronExpression}`);
+      try {
+        const { Settings } = require('../models');
+        const schedulerSetting = await Settings.getSchedulerSetting('sms_execution');
+        if (schedulerSetting && schedulerSetting.cron_expression) {
+          cronExpression = schedulerSetting.cron_expression;
+          console.log(`Loaded SMS execution scheduler cron from database: ${cronExpression}`);
+        }
+      } catch (error) {
+        console.warn('Could not load scheduler settings from database, using environment variable:', error.message);
+      }
+
+      this.cronJob = cron.schedule(cronExpression, async () => {
+        await this.executePendingSmsJobs();
+      }, {
+        scheduled: false,
+        timezone: 'Etc/UTC'
+      });
+
+      this.cronJob.start();
+      console.log(`SMS execution scheduler started with cron: ${cronExpression}`);
+    } catch (error) {
+      console.error('Error starting SMS execution scheduler:', error);
+      throw error;
+    }
   }
 
   // Stop the scheduler

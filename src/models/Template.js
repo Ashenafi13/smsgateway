@@ -10,78 +10,80 @@ class Template {
   }
 
   // Static templates from the existing code
+  // Updated to remove amount/money information while keeping character limits
+  // English: 159 chars, Amharic: 69 chars
   static getStaticTemplates() {
     return [
       {
         id: 1,
         name: 'Payment Reminder - Deadline Approaching',
         category: 'Payment',
-        template_en: `Dear Customer, a friendly reminder that the rent of {formattedAmount} for Room ID: {room} is due in {daysRemaining} days. Thank you for your cooperation.`,
-        template_am: `ውድ ደንበኛችን፣ ለክፍል {room} የ{formattedAmount} ክፍያ {daysRemaining} ቀን ቀረው።`,
-        variables: 'customerName,room,daysRemaining,formattedAmount,description,paymentId',
+        template_en: `Dear {customerName}, your rent for Room {room} is due in {daysRemaining} days. Please arrange payment. Thank you.`,
+        template_am: `ውድ {customerName}፣ ለክፍል {room} ክፍያ {daysRemaining} ቀን ቀረው። እባክዎ ይከፍሉ።`,
+        variables: 'customerName,room,daysRemaining,paymentId',
         usage_count: 0
       },
       {
         id: 2,
         name: 'Payment Reminder - Deadline Approaching (Alternative)',
         category: 'Payment',
-        template_en: `Dear {customerName}, your payment of {formattedAmount} for Space ID: {room} is approaching its due date in {daysRemaining} days. Please plan your payment accordingly.`,
-        template_am: `ውድ ደንበኛችን፣ የክፍል {room} የኪራይ ክፍያ ሊጠናቀቅ {daysRemaining} ቀን ቀርቶታል።`,
-        variables: 'customerName,room,daysRemaining,formattedAmount,description,paymentId',
+        template_en: `Reminder: Your rent for Room {room} is due in {daysRemaining} days. Please make payment at your earliest convenience.`,
+        template_am: `ማስታወሻ: ለክፍል {room} ክፍያ {daysRemaining} ቀን ቀረው። እባክዎ ይከፍሉ።`,
+        variables: 'customerName,room,daysRemaining,paymentId',
         usage_count: 0
       },
       {
         id: 3,
         name: 'Payment Reminder - Deadline Passed',
         category: 'Payment',
-        template_en: `Dear Customer, your rent for Room ID: {room} is past due. Please immediately pay the outstanding balance of {formattedAmount}.`,
-        template_am: `ውድ ደንበኛችን፣ የክፍል {room} ክፍያዎ አልፏል። {formattedAmount} ይከፍሉ።`,
-        variables: 'customerName,room,formattedAmount,paymentId',
+        template_en: `URGENT: Your rent for Room {room} is overdue. Please contact us immediately to settle your account.`,
+        template_am: `ወሳኝ: ለክፍል {room} ክፍያ ያመለጠ። እባክዎ ወዲያውኑ ያነጋግሩን።`,
+        variables: 'customerName,room,paymentId',
         usage_count: 0
       },
       {
         id: 4,
         name: 'Payment Reminder - Deadline Passed (Alternative)',
         category: 'Payment',
-        template_en: `URGENT: For Space ID: {room}, your payment is overdue. Please immediately pay the outstanding balance of {formattedAmount}.`,
-        template_am: `ውድ ደንበኛችን፣ ለክፍል {room} ያመለጠ ክፍያ {formattedAmount} ይከፍሉ።`,
-        variables: 'customerName,room,formattedAmount,paymentId',
+        template_en: `ACTION REQUIRED: Your payment for Room {room} is past due. Please settle immediately to avoid penalties.`,
+        template_am: `ተግባር ያስፈልጋል: ለክፍል {room} ክፍያ ያመለጠ። ወዲያውኑ ይከፍሉ።`,
+        variables: 'customerName,room,paymentId',
         usage_count: 0
       },
       {
         id: 5,
         name: 'Contract Reminder - Deadline Approaching',
         category: 'Contract',
-        template_en: `Dear Customer, this is a reminder that your rental contract for Room ID: {room} will expire in {daysRemaining} days. Please contact us to discuss renewal.`,
-        template_am: `ውድ ደንበኛችን፣ የክፍል {room} ውልዎ ሊጠናቀቅ {daysRemaining} ቀን ብቻ ቀርቷል።`,
-        variables: 'customerName,room,daysRemaining,formattedAmount,description,contractId',
+        template_en: `Dear {customerName}, your lease for Room {room} expires in {daysRemaining} days. Please contact us to discuss renewal.`,
+        template_am: `ውድ {customerName}፣ የክፍል {room} ውል {daysRemaining} ቀን ያበቃል። እባክዎ ያድሱ።`,
+        variables: 'customerName,room,daysRemaining,contractId',
         usage_count: 0
       },
       {
         id: 6,
         name: 'Contract Reminder - Deadline Approaching (Alternative)',
         category: 'Contract',
-        template_en: `Dear {customerName}, your lease for Space ID: {room} is set to expire in {daysRemaining} days. We hope you choose to stay with us! Please let us know your plans.`,
-        template_am: `ውድ ደንበኛችን፣ የክፍል {room} ውል በ{daysRemaining} ቀን ያበቃል። እባክዎ ያድሱ።`,
-        variables: 'customerName,room,daysRemaining,formattedAmount,description,contractId',
+        template_en: `Reminder: Your lease for Room {room} will expire in {daysRemaining} days. Please contact us to renew your contract.`,
+        template_am: `ማስታወሻ: የክፍል {room} ውል {daysRemaining} ቀን ያበቃል። እባክዎ ያድሱ።`,
+        variables: 'customerName,room,daysRemaining,contractId',
         usage_count: 0
       },
       {
         id: 7,
         name: 'Contract Reminder - Deadline Passed',
         category: 'Contract',
-        template_en: `Dear Customer, your rental contract for Space ID: {room} has expired. To avoid any issues, please contact our office immediately to resolve this matter.`,
-        template_am: `ውድ ደንበኛችን፣ የክፍል {room} ውልዎ ጊዜው አልፏል። እባክዎ ያነጋግሩን።`,
-        variables: 'customerName,room,formattedAmount,description,contractId',
+        template_en: `URGENT: Your lease for Room {room} has expired. Please contact our office immediately to resolve this matter.`,
+        template_am: `ወሳኝ: የክፍል {room} ውል ጊዜው አልፏል። እባክዎ ወዲያውኑ ያነጋግሩን።`,
+        variables: 'customerName,room,contractId',
         usage_count: 0
       },
       {
         id: 8,
         name: 'Contract Reminder - Deadline Passed (Alternative)',
         category: 'Contract',
-        template_en: `IMPORTANT: For Room ID: {room}, your lease has expired. Please visit the management office at your earliest convenience to discuss your status.`,
-        template_am: `ውድ ደንበኛችን፣ የክፍል {room} ውልዎ ስላበቃ እባክዎ ቢሮ ይምጡ።`,
-        variables: 'customerName,room,formattedAmount,description,contractId',
+        template_en: `ACTION REQUIRED: Your lease for Room {room} has expired. Please visit our office to discuss your status.`,
+        template_am: `ተግባር ያስፈልጋል: የክፍል {room} ውል ጊዜው አልፏል። እባክዎ ቢሮ ይምጡ።`,
+        variables: 'customerName,room,contractId',
         usage_count: 0
       }
     ];
