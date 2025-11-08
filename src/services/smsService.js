@@ -245,6 +245,45 @@ class SmsService {
     }
   }
 
+  static async processSmsJob(jobId) {
+    try {
+      const job = await SmsSchedulerJob.findById(jobId);
+      if (!job) {
+        throw new Error('SMS job not found');
+      }
+
+      if (job.jobStatus !== 'pending') {
+        throw new Error('Job is not in pending status');
+      }
+
+      try {
+        // Send SMS
+        const smsResult = await this.sendSms(job.phoneNumber, job.message);
+        
+        // Update job status to completed
+        await SmsSchedulerJob.updateStatus(jobId, 'completed');
+        
+        // Create SMS history record
+        await SmsHistory.create({
+          phoneNumber: job.phoneNumber,
+          message: job.message,
+          type: job.jobtype
+        });
+
+        return {
+          success: true,
+          message: 'SMS job processed successfully',
+          smsResult
+        };
+      } catch (smsError) {
+        // Update job status to failed
+        await SmsSchedulerJob.updateStatus(jobId, 'failed');
+        throw new Error(`SMS sending failed: ${smsError.message}`);
+      }
+    } catch (error) {
+      throw new Error(`Failed to process SMS job: ${error.message}`);
+    }
+  }
   // SMS Sending using GeezSMS API
   static async sendSms(phoneNumber, message) {
     try {
