@@ -290,6 +290,54 @@ class TemplateController {
     }
   }
 
+  // Update template
+  static async updateTemplate(req, res) {
+    try {
+      const { id } = req.params;
+      const { template_en, template_am, name, category } = req.body;
+
+      // Validate required fields
+      if (!template_en && !template_am) {
+        return res.status(400).json({
+          success: false,
+          error: 'Bad Request',
+          message: 'At least one template (template_en or template_am) is required'
+        });
+      }
+
+      // Check if template exists
+      const template = await Template.findById(parseInt(id));
+      if (!template) {
+        return res.status(404).json({
+          success: false,
+          error: 'Not Found',
+          message: 'Template not found'
+        });
+      }
+
+      // Update template
+      const updatedTemplate = await Template.update(parseInt(id), {
+        template_en,
+        template_am,
+        name,
+        category
+      });
+
+      res.status(200).json({
+        success: true,
+        data: updatedTemplate,
+        message: 'Template updated successfully'
+      });
+    } catch (error) {
+      console.error('Error updating template:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Internal Server Error',
+        message: error.message
+      });
+    }
+  }
+
   // Calculate penalty for a payment amount and overdue days
   static async calculatePenalty(req, res) {
     try {

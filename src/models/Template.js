@@ -1,3 +1,6 @@
+const sql = require('mssql');
+const { getSMSPool } = require('../config/database');
+
 class Template {
   constructor(data) {
     this.id = data.id;
@@ -7,94 +10,25 @@ class Template {
     this.template_am = data.template_am;
     this.variables = data.variables;
     this.usage_count = data.usage_count || 0;
+    this.is_active = data.is_active !== undefined ? data.is_active : 1;
+    this.createdAt = data.createdAt;
+    this.updatedAt = data.updatedAt;
   }
 
-  // Static templates from the existing code
-  // Updated to remove amount/money information while keeping character limits
-  // English: 159 chars, Amharic: 69 chars
-  static getStaticTemplates() {
-    return [
-      {
-        id: 1,
-        name: 'Payment Reminder - Deadline Approaching',
-        category: 'Payment',
-        template_en: `Dear {customerName}, your rent for Room {room} is due in {daysRemaining} days. Please arrange payment. Thank you.`,
-        template_am: `ውድ {customerName}፣ ለክፍል {room} ክፍያ {daysRemaining} ቀን ቀረው። እባክዎ ይከፍሉ።`,
-        variables: 'customerName,room,daysRemaining,paymentId',
-        usage_count: 0
-      },
-      {
-        id: 2,
-        name: 'Payment Reminder - Deadline Approaching (Alternative)',
-        category: 'Payment',
-        template_en: `Reminder: Your rent for Room {room} is due in {daysRemaining} days. Please make payment at your earliest convenience.`,
-        template_am: `ማስታወሻ: ለክፍል {room} ክፍያ {daysRemaining} ቀን ቀረው። እባክዎ ይከፍሉ።`,
-        variables: 'customerName,room,daysRemaining,paymentId',
-        usage_count: 0
-      },
-      {
-        id: 3,
-        name: 'Payment Reminder - Deadline Passed',
-        category: 'Payment',
-        template_en: `URGENT: Your rent for Room {room} is overdue. Please contact us immediately to settle your account.`,
-        template_am: `ወሳኝ: ለክፍል {room} ክፍያ ያመለጠ። እባክዎ ወዲያውኑ ያነጋግሩን።`,
-        variables: 'customerName,room,paymentId',
-        usage_count: 0
-      },
-      {
-        id: 4,
-        name: 'Payment Reminder - Deadline Passed (Alternative)',
-        category: 'Payment',
-        template_en: `ACTION REQUIRED: Your payment for Room {room} is past due. Please settle immediately to avoid penalties.`,
-        template_am: `ተግባር ያስፈልጋል: ለክፍል {room} ክፍያ ያመለጠ። ወዲያውኑ ይከፍሉ።`,
-        variables: 'customerName,room,paymentId',
-        usage_count: 0
-      },
-      {
-        id: 5,
-        name: 'Contract Reminder - Deadline Approaching',
-        category: 'Contract',
-        template_en: `Dear {customerName}, your lease for Room {room} expires in {daysRemaining} days. Please contact us to discuss renewal.`,
-        template_am: `ውድ {customerName}፣ የክፍል {room} ውል {daysRemaining} ቀን ያበቃል። እባክዎ ያድሱ።`,
-        variables: 'customerName,room,daysRemaining,contractId',
-        usage_count: 0
-      },
-      {
-        id: 6,
-        name: 'Contract Reminder - Deadline Approaching (Alternative)',
-        category: 'Contract',
-        template_en: `Reminder: Your lease for Room {room} will expire in {daysRemaining} days. Please contact us to renew your contract.`,
-        template_am: `ማስታወሻ: የክፍል {room} ውል {daysRemaining} ቀን ያበቃል። እባክዎ ያድሱ።`,
-        variables: 'customerName,room,daysRemaining,contractId',
-        usage_count: 0
-      },
-      {
-        id: 7,
-        name: 'Contract Reminder - Deadline Passed',
-        category: 'Contract',
-        template_en: `URGENT: Your lease for Room {room} has expired. Please contact our office immediately to resolve this matter.`,
-        template_am: `ወሳኝ: የክፍል {room} ውል ጊዜው አልፏል። እባክዎ ወዲያውኑ ያነጋግሩን።`,
-        variables: 'customerName,room,contractId',
-        usage_count: 0
-      },
-      {
-        id: 8,
-        name: 'Contract Reminder - Deadline Passed (Alternative)',
-        category: 'Contract',
-        template_en: `ACTION REQUIRED: Your lease for Room {room} has expired. Please visit our office to discuss your status.`,
-        template_am: `ተግባር ያስፈልጋል: የክፍል {room} ውል ጊዜው አልፏል። እባክዎ ቢሮ ይምጡ።`,
-        variables: 'customerName,room,contractId',
-        usage_count: 0
-      }
-    ];
-  }
-
-  // Get all templates
+  // Get all templates from database
   static async findAll(language = null) {
     try {
-      const templates = this.getStaticTemplates();
+      const pool = getSMSPool();
+      const request = pool.request();
 
-      return templates.map(template => {
+      const result = await request.query(`
+        SELECT id, name, category, template_en, template_am, variables, usage_count, is_active, createdAt, updatedAt
+        FROM tbls_templates
+        WHERE is_active = 1
+        ORDER BY category, id
+      `);
+
+      return result.recordset.map(template => {
         const templateObj = new Template(template);
 
         // If specific language requested, only return that language template
@@ -113,13 +47,22 @@ class Template {
     }
   }
 
-  // Get templates by category
+  // Get templates by category from database
   static async findByCategory(category, language = null) {
     try {
-      const templates = this.getStaticTemplates();
-      const filteredTemplates = templates.filter(template => template.category === category);
+      const pool = getSMSPool();
+      const request = pool.request();
 
-      return filteredTemplates.map(template => {
+      const result = await request
+        .input('category', sql.NVarChar(100), category)
+        .query(`
+          SELECT id, name, category, template_en, template_am, variables, usage_count, is_active, createdAt, updatedAt
+          FROM tbls_templates
+          WHERE category = @category AND is_active = 1
+          ORDER BY id
+        `);
+
+      return result.recordset.map(template => {
         const templateObj = new Template(template);
 
         // If specific language requested, only return that language template
@@ -138,16 +81,25 @@ class Template {
     }
   }
 
-  // Get template by ID
+  // Get template by ID from database
   static async findById(id, language = null) {
     try {
-      const templates = this.getStaticTemplates();
-      const template = templates.find(t => t.id === parseInt(id));
+      const pool = getSMSPool();
+      const request = pool.request();
 
-      if (!template) {
+      const result = await request
+        .input('id', sql.Int, parseInt(id))
+        .query(`
+          SELECT id, name, category, template_en, template_am, variables, usage_count, is_active, createdAt, updatedAt
+          FROM tbls_templates
+          WHERE id = @id
+        `);
+
+      if (result.recordset.length === 0) {
         return null;
       }
 
+      const template = result.recordset[0];
       const templateObj = new Template(template);
 
       // If specific language requested, only return that language template
@@ -165,53 +117,62 @@ class Template {
     }
   }
 
-  // Get all available categories
+  // Get all available categories from database
   static async getCategories() {
     try {
-      const templates = this.getStaticTemplates();
-      const categoryMap = {};
+      const pool = getSMSPool();
+      const request = pool.request();
 
-      templates.forEach(template => {
-        if (!categoryMap[template.category]) {
-          categoryMap[template.category] = 0;
-        }
-        categoryMap[template.category]++;
-      });
+      const result = await request.query(`
+        SELECT DISTINCT category, COUNT(*) as template_count
+        FROM tbls_templates
+        WHERE is_active = 1
+        GROUP BY category
+        ORDER BY category
+      `);
 
-      return Object.keys(categoryMap).map(category => ({
-        category,
-        template_count: categoryMap[category]
-      })).sort((a, b) => a.category.localeCompare(b.category));
+      return result.recordset;
     } catch (error) {
       throw new Error(`Error fetching template categories: ${error.message}`);
     }
   }
 
-  // Get template statistics
+  // Get template statistics from database
   static async getStatistics() {
     try {
-      const templates = this.getStaticTemplates();
-      const categories = new Set(templates.map(t => t.category));
-      const totalUsage = templates.reduce((sum, t) => sum + t.usage_count, 0);
+      const pool = getSMSPool();
+      const request = pool.request();
 
-      return {
-        total_templates: templates.length,
-        active_templates: templates.length,
-        inactive_templates: 0,
-        total_categories: categories.size,
-        total_usage: totalUsage
-      };
+      const result = await request.query(`
+        SELECT
+          COUNT(*) as total_templates,
+          SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_templates,
+          SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as inactive_templates,
+          COUNT(DISTINCT category) as total_categories,
+          SUM(usage_count) as total_usage
+        FROM tbls_templates
+      `);
+
+      return result.recordset[0];
     } catch (error) {
       throw new Error(`Error fetching template statistics: ${error.message}`);
     }
   }
 
-  // Increment usage count (static - no persistence)
+  // Increment usage count in database
   static async incrementUsage(id) {
     try {
-      // For static templates, we just return success
-      // In a real implementation, you might want to store usage in memory or logs
-      console.log(`Template ${id} usage incremented`);
+      const pool = getSMSPool();
+      const request = pool.request();
+
+      await request
+        .input('id', sql.Int, parseInt(id))
+        .query(`
+          UPDATE tbls_templates
+          SET usage_count = usage_count + 1, updatedAt = GETDATE()
+          WHERE id = @id
+        `);
+
       return true;
     } catch (error) {
       throw new Error(`Error incrementing template usage: ${error.message}`);
@@ -224,6 +185,81 @@ class Template {
       return { message: 'Static templates are always available - no initialization needed' };
     } catch (error) {
       throw new Error(`Error initializing default templates: ${error.message}`);
+    }
+  }
+
+  // Update template in database
+  static async update(id, updateData) {
+    try {
+      const pool = getSMSPool();
+      const request = pool.request();
+
+      // First, check if template exists
+      const existingTemplate = await this.findById(id);
+      if (!existingTemplate) {
+        throw new Error(`Template with ID ${id} not found`);
+      }
+
+      // Build update query dynamically based on provided fields
+      const updates = [];
+      const inputs = { id: parseInt(id) };
+
+      if (updateData.template_en !== undefined) {
+        updates.push('template_en = @template_en');
+        inputs.template_en = updateData.template_en;
+      }
+
+      if (updateData.template_am !== undefined) {
+        updates.push('template_am = @template_am');
+        inputs.template_am = updateData.template_am;
+      }
+
+      if (updateData.name !== undefined) {
+        updates.push('name = @name');
+        inputs.name = updateData.name;
+      }
+
+      if (updateData.category !== undefined) {
+        updates.push('category = @category');
+        inputs.category = updateData.category;
+      }
+
+      if (updateData.variables !== undefined) {
+        updates.push('variables = @variables');
+        inputs.variables = updateData.variables;
+      }
+
+      if (updateData.is_active !== undefined) {
+        updates.push('is_active = @is_active');
+        inputs.is_active = updateData.is_active;
+      }
+
+      if (updates.length === 0) {
+        return existingTemplate;
+      }
+
+      updates.push('updatedAt = GETDATE()');
+
+      // Build the query
+      let query = `UPDATE tbls_templates SET ${updates.join(', ')} WHERE id = @id`;
+
+      // Add inputs to request
+      Object.keys(inputs).forEach(key => {
+        if (key === 'id') {
+          request.input(key, sql.Int, inputs[key]);
+        } else if (key === 'is_active') {
+          request.input(key, sql.Int, inputs[key]);
+        } else {
+          request.input(key, sql.NVarChar(sql.MAX), inputs[key]);
+        }
+      });
+
+      await request.query(query);
+
+      // Fetch and return updated template
+      return await this.findById(id);
+    } catch (error) {
+      throw new Error(`Error updating template: ${error.message}`);
     }
   }
 }

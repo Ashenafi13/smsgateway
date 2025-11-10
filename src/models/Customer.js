@@ -290,8 +290,7 @@ class Customer {
           'individual' as type,
           COUNT(*) as count
         FROM individual_renters
-        WHERE Status = 'active'
-        
+        WHERE Status = 'begin'        
         UNION ALL
         
         SELECT 

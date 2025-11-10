@@ -43,5 +43,6 @@ router.get('/category/:category', TemplateController.getTemplatesByCategory);
 
 // Routes with :id parameter (must come last)
 router.get('/:id', TemplateController.getTemplateById);
+router.put('/:id', TemplateController.updateTemplate);
 
 module.exports = router;

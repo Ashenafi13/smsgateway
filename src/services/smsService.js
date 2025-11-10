@@ -230,15 +230,16 @@ class SmsService {
       throw new Error(`Failed to update SMS settings: ${error.message}`);
     }
   }
-
+  
   // Scheduler Status
   static async getSchedulerStatus() {
     try {
       const settings = await Settings.get();
+      console.log('Scheduler status:', settings.schedulerStatus);
       return {
         schedulerStatus: settings.schedulerStatus,
-        isActive: settings.schedulerStatus === 1,
-        statusLabel: settings.schedulerStatus === 1 ? 'ACTIVE' : 'INACTIVE'
+        isActive: settings.schedulerStatus,
+        statusLabel: settings.schedulerStatus ? 'ACTIVE' : 'INACTIVE'
       };
     } catch (error) {
       throw new Error(`Failed to fetch scheduler status: ${error.message}`);

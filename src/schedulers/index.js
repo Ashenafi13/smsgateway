@@ -22,6 +22,10 @@ async function initializeSchedulers() {
     try {
       const settings = await Settings.get();
       schedulerStatus = settings.schedulerStatus !== undefined ? settings.schedulerStatus : 1;
+      // Convert boolean to integer (true -> 1, false -> 0)
+      if (typeof schedulerStatus === 'boolean') {
+        schedulerStatus = schedulerStatus ? 1 : 0;
+      }
       console.log(`Scheduler status from database: ${schedulerStatus === 1 ? 'ACTIVE' : 'INACTIVE'}`);
     } catch (error) {
       console.warn('Could not fetch scheduler status from database, defaulting to active:', error.message);

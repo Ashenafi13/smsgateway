@@ -1,5 +1,6 @@
 const { validationResult } = require('express-validator');
 const SmsService = require('../services/smsService');
+const { Settings } = require('../models');
 const { startAllSchedulers, stopAllSchedulers } = require('../schedulers');
 
 class SettingsController {
@@ -146,7 +147,7 @@ class SettingsController {
   static async getSchedulerStatus(req, res) {
     try {
       const schedulerStatus = await SmsService.getSchedulerStatus();
-
+       console.log('Scheduler status:', schedulerStatus);
       res.json({
         success: true,
         data: schedulerStatus
@@ -205,6 +206,97 @@ class SettingsController {
       console.error('Update scheduler status error:', error);
       res.status(400).json({
         error: 'Failed to update scheduler status',
+        message: error.message
+      });
+    }
+  }
+
+  // Get all scheduler settings
+  static async getAllSchedulerSettings(req, res) {
+    try {
+      const schedulerSettings = await Settings.getAllSchedulerSettings();
+
+      res.json({
+        success: true,
+        data: schedulerSettings,
+        message: 'Scheduler settings retrieved successfully'
+      });
+    } catch (error) {
+      console.error('Get all scheduler settings error:', error);
+      res.status(500).json({
+        error: 'Failed to fetch scheduler settings',
+        message: error.message
+      });
+    }
+  }
+
+  // Get specific scheduler setting
+  static async getSchedulerSetting(req, res) {
+    try {
+      const { schedulerName } = req.params;
+      const schedulerSetting = await Settings.getSchedulerSetting(schedulerName);
+
+      if (!schedulerSetting) {
+        return res.status(404).json({
+          success: false,
+          error: 'Not Found',
+          message: `Scheduler setting '${schedulerName}' not found`
+        });
+      }
+
+      res.json({
+        success: true,
+        data: schedulerSetting,
+        message: 'Scheduler setting retrieved successfully'
+      });
+    } catch (error) {
+      console.error('Get scheduler setting error:', error);
+      res.status(500).json({
+        error: 'Failed to fetch scheduler setting',
+        message: error.message
+      });
+    }
+  }
+
+  // Update scheduler setting
+  static async updateSchedulerSetting(req, res) {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          error: 'Validation failed',
+          details: errors.array()
+        });
+      }
+
+      const { schedulerName } = req.params;
+      const { cronExpression, isActive } = req.body;
+
+      // Validate required fields
+      if (!cronExpression) {
+        return res.status(400).json({
+          success: false,
+          error: 'Bad Request',
+          message: 'cronExpression is required'
+        });
+      }
+
+      // Upsert scheduler setting (create if not exists, update if exists)
+      const updatedSetting = await Settings.upsertSchedulerSetting(
+        schedulerName,
+        cronExpression,
+        isActive !== undefined ? isActive : 1
+      );
+
+      res.json({
+        success: true,
+        data: updatedSetting,
+        message: 'Scheduler setting updated successfully'
+      });
+    } catch (error) {
+      console.error('Update scheduler setting error:', error);
+      res.status(400).json({
+        error: 'Failed to update scheduler setting',
         message: error.message
       });
     }

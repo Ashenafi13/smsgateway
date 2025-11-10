@@ -64,4 +64,25 @@ router.get('/scheduler/status', SettingsController.getSchedulerStatus);
  */
 router.put('/scheduler/status', settingsValidation.update, SettingsController.updateSchedulerStatus);
 
+/**
+ * @route   GET /api/settings/scheduler/all
+ * @desc    Get all scheduler settings
+ * @access  Private
+ */
+router.get('/scheduler/all', SettingsController.getAllSchedulerSettings);
+
+/**
+ * @route   GET /api/settings/scheduler/:schedulerName
+ * @desc    Get specific scheduler setting
+ * @access  Private
+ */
+router.get('/scheduler/:schedulerName', SettingsController.getSchedulerSetting);
+
+/**
+ * @route   PUT /api/settings/scheduler/:schedulerName
+ * @desc    Update specific scheduler setting (cron expression and active status)
+ * @access  Private
+ */
+router.put('/scheduler/:schedulerName', settingsValidation.update, SettingsController.updateSchedulerSetting);
+
 module.exports = router;

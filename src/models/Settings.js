@@ -191,6 +191,46 @@ class Settings {
       throw new Error(`Error updating scheduler setting: ${error.message}`);
     }
   }
+
+  // Create scheduler setting if it doesn't exist
+  static async createSchedulerSetting(schedulerName, cronExpression, isActive = 1) {
+    try {
+      const pool = getSMSPool();
+      const request = pool.request();
+
+      const result = await request
+        .input('schedulerName', sql.NVarChar(100), schedulerName)
+        .input('cronExpression', sql.NVarChar(100), cronExpression)
+        .input('isActive', sql.Int, isActive)
+        .query(`
+          INSERT INTO tbls_settings_scheduler (scheduler_name, cron_expression, is_active, createdAt, updatedAt)
+          OUTPUT INSERTED.*
+          VALUES (@schedulerName, @cronExpression, @isActive, GETDATE(), GETDATE())
+        `);
+
+      return result.recordset[0];
+    } catch (error) {
+      throw new Error(`Error creating scheduler setting: ${error.message}`);
+    }
+  }
+
+  // Upsert scheduler setting (create if not exists, update if exists)
+  static async upsertSchedulerSetting(schedulerName, cronExpression, isActive = 1) {
+    try {
+      // Try to get existing setting
+      const existing = await this.getSchedulerSetting(schedulerName);
+
+      if (existing) {
+        // Update existing
+        return await this.updateSchedulerSetting(schedulerName, cronExpression, isActive);
+      } else {
+        // Create new
+        return await this.createSchedulerSetting(schedulerName, cronExpression, isActive);
+      }
+    } catch (error) {
+      throw new Error(`Error upserting scheduler setting: ${error.message}`);
+    }
+  }
 }
 
 module.exports = Settings;
